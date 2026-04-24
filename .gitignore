@@ -1,0 +1,16 @@
+.expo/
+.pdf-pages/
+.codex-pdf/
+node_modules/
+dist/
+.npm-cache/
+.env
+backend/.env
+backend/serviceAccountKey.json
+luct-app/.env
+backend/node_modules/
+luct-app/node_modules/
+luct-app/dist/
+luct-app/.expo/
+luct-app/.npm-cache/
+*.log

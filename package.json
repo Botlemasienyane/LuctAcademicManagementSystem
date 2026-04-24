@@ -1,0 +1,10 @@
+{
+  "name": "luct-ams",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix ./luct-app start",
+    "android": "npm --prefix ./luct-app run android",
+    "ios": "npm --prefix ./luct-app run ios",
+    "web": "npm --prefix ./luct-app run web"
+  }
+}
