@@ -1,0 +1,125 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return signedIn() && userDoc().exists() ? userDoc().data.role : null;
+    }
+
+    function isAdminRole() {
+      return userRole() in ['PRL', 'PL', 'FMG'];
+    }
+
+    function isLecturerRole() {
+      return userRole() == 'Lecturer';
+    }
+
+    function isStudentRole() {
+      return userRole() == 'Student';
+    }
+
+    function isCourseManager() {
+      return userRole() in ['PL', 'FMG'];
+    }
+
+    function isAttendanceManager() {
+      return userRole() in ['Lecturer', 'PRL', 'PL', 'FMG'];
+    }
+
+    function ownsDocument() {
+      return signedIn() && resource.data.createdByUid == request.auth.uid;
+    }
+
+    function createsOwnDocument() {
+      return signedIn() && request.resource.data.createdByUid == request.auth.uid;
+    }
+
+    function validReport() {
+      return request.resource.data.facultyName is string
+        && request.resource.data.className is string
+        && request.resource.data.classCode is string
+        && request.resource.data.week is string
+        && request.resource.data.dateOfLecture is string
+        && request.resource.data.courseName is string
+        && request.resource.data.courseCode is string
+        && request.resource.data.lecturerName is string
+        && request.resource.data.actualStudents is int
+        && request.resource.data.totalRegistered is int
+        && request.resource.data.venue is string
+        && request.resource.data.scheduledTime is string
+        && request.resource.data.topicTaught is string
+        && request.resource.data.learningOutcomes is string
+        && request.resource.data.recommendations is string
+        && request.resource.data.status is string
+        && request.resource.data.feedback is string;
+    }
+
+    function validAttendance() {
+      return request.resource.data.classCode is string
+        && request.resource.data.courseCode is string
+        && request.resource.data.date is string
+        && request.resource.data.present is int
+        && request.resource.data.total is int
+        && request.resource.data.lecturerName is string;
+    }
+
+    function validRating() {
+      return request.resource.data.lecturerName is string
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string;
+    }
+
+    function validCourse() {
+      return request.resource.data.class is string
+        && request.resource.data.code is string
+        && request.resource.data.name is string
+        && request.resource.data.lecturer is string
+        && request.resource.data.venue is string
+        && request.resource.data.time is string
+        && request.resource.data.day is string;
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdminRole());
+      allow create, update: if signedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if signedIn();
+      allow create: if isLecturerRole() && createsOwnDocument() && validReport();
+      allow update: if ownsDocument() || isAdminRole();
+      allow delete: if ownsDocument() || isAdminRole();
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if signedIn();
+      allow create: if isAttendanceManager() && createsOwnDocument() && validAttendance();
+      allow update: if ownsDocument() || userRole() in ['PL', 'FMG'];
+      allow delete: if ownsDocument() || userRole() in ['PL', 'FMG'];
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if signedIn();
+      allow create: if isStudentRole() && createsOwnDocument() && validRating();
+      allow update: if ownsDocument() || userRole() == 'FMG';
+      allow delete: if ownsDocument() || userRole() == 'FMG';
+    }
+
+    match /courses/{courseId} {
+      allow read: if signedIn();
+      allow create: if isCourseManager() && validCourse();
+      allow update: if isCourseManager();
+      allow delete: if isCourseManager();
+    }
+  }
+}

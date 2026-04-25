@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppShell } from '../components/AppShell';
 import { Card, SearchBar, EmptyState, Input, Btn, Badge } from '../components/UI';
@@ -193,7 +193,7 @@ export function ClassesScreen({ navigation, route }) {
 export function CoursesScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { courses, saveCourse } = useData();
+  const { courses, saveCourse, deleteCourse } = useData();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const filterClass = route?.params?.filterClass;
@@ -229,22 +229,28 @@ export function CoursesScreen({ navigation, route }) {
     setCourseForm(current => ({ ...current, [key]: value }));
   };
 
-  const handleSaveCourse = () => {
+  const handleSaveCourse = async () => {
     if (!courseForm.class || !courseForm.code || !courseForm.name || !courseForm.lecturer || !courseForm.venue || !courseForm.time) {
+      Alert.alert('Missing details', 'Please fill in class, course name, code, lecturer, venue, and time.');
       return;
     }
 
-    saveCourse(courseForm);
-    setCourseForm({
-      class: filterClass?.code || availableClasses[0]?.code || '',
-      code: '',
-      name: '',
-      lecturer: lecturerOptions[0]?.name || '',
-      venue: '',
-      time: '',
-      day: 'Monday',
-    });
-    setShowForm(false);
+    try {
+      await saveCourse(courseForm);
+      setCourseForm({
+        class: filterClass?.code || availableClasses[0]?.code || '',
+        code: '',
+        name: '',
+        lecturer: lecturerOptions[0]?.name || '',
+        venue: '',
+        time: '',
+        day: 'Monday',
+      });
+      setShowForm(false);
+      Alert.alert('Saved', 'Course saved successfully.');
+    } catch (error) {
+      Alert.alert('Save failed', error.message || 'Could not save the course right now.');
+    }
   };
 
   const timeIcon = time => {
@@ -451,6 +457,37 @@ export function CoursesScreen({ navigation, route }) {
                       </View>
                     ))}
                   </View>
+
+                  {user.role === 'PL' ? (
+                    <TouchableOpacity
+                      onPress={() =>
+                        Alert.alert('Delete course', `Remove ${course.code} from the schedule?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                await deleteCourse(course.id);
+                                Alert.alert('Deleted', 'Course removed successfully.');
+                              } catch (error) {
+                                Alert.alert('Delete failed', error.message || 'Could not remove the course right now.');
+                              }
+                            },
+                          },
+                        ])
+                      }
+                      style={{
+                        marginTop: 12,
+                        backgroundColor: theme.dangerSoft || '#FCE8E8',
+                        borderRadius: 14,
+                        paddingVertical: 12,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: theme.danger, fontWeight: '900' }}>Delete Course</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </Card>
               );
             })}

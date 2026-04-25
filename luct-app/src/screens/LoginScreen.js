@@ -13,16 +13,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRoleTone, useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { DEMO_USERS } from '../data/seedData';
+import { CLASSES, DEMO_USERS, FACULTIES } from '../data/seedData';
 import { Btn, Input } from '../components/UI';
 
 export default function LoginScreen() {
   const { theme, isDark } = useTheme();
-  const { authenticate } = useAuth();
+  const { authenticate, registerStudent } = useAuth();
   const insets = useSafeAreaInsets();
   const formFade = useRef(new Animated.Value(0)).current;
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [studentFaculty, setStudentFaculty] = useState(FACULTIES[0]?.id || '');
+  const [studentClass, setStudentClass] = useState(CLASSES[0]?.code || '');
   const [loading, setLoading] = useState(false);
   const [showDemo, setShowDemo] = useState(true);
 
@@ -39,6 +43,8 @@ export default function LoginScreen() {
     return accumulator;
   }, {});
 
+  const availableClasses = CLASSES.filter(cls => cls.faculty === studentFaculty);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Missing details', 'Enter your email and password to continue.');
@@ -50,6 +56,28 @@ export default function LoginScreen() {
       await authenticate(email, password);
     } catch (error) {
       Alert.alert('Login failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!studentName || !email || !password || !studentFaculty || !studentClass) {
+      Alert.alert('Missing details', 'Fill in your name, email, password, faculty, and class.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await registerStudent({
+        name: studentName,
+        email,
+        password,
+        faculty: studentFaculty,
+        classCode: studentClass,
+      });
+    } catch (error) {
+      Alert.alert('Registration failed', error.message);
     } finally {
       setLoading(false);
     }
@@ -123,12 +151,99 @@ export default function LoginScreen() {
               borderColor: theme.border,
             }}
           >
-            <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>Sign in</Text>
-            <Text style={{ color: theme.textMuted, marginTop: 6, marginBottom: 16 }}>Use your LUCT credentials.</Text>
+            <View style={{ flexDirection: 'row', backgroundColor: theme.bgSecondary, borderRadius: 14, padding: 4, marginBottom: 16 }}>
+              {[
+                { key: 'login', label: 'Sign in' },
+                { key: 'register', label: 'Register' },
+              ].map(item => (
+                <TouchableOpacity
+                  key={item.key}
+                  onPress={() => setMode(item.key)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: mode === item.key ? theme.bgCard : 'transparent',
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: mode === item.key ? theme.text : theme.textMuted, fontWeight: '800' }}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-            <Input label="Email" value={email} onChangeText={setEmail} placeholder="your@limkokwing.ac.ls" keyboardType="email-address" autoCapitalize="none" />
-            <Input label="Password" value={password} onChangeText={setPassword} placeholder="Enter password" secureTextEntry autoCapitalize="none" />
-            <Btn title={loading ? 'Signing in...' : 'Sign in'} onPress={handleLogin} size="lg" disabled={loading} />
+            <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{mode === 'login' ? 'Sign in' : 'Student registration'}</Text>
+            <Text style={{ color: theme.textMuted, marginTop: 6, marginBottom: 16 }}>
+              {mode === 'login' ? 'Use your LUCT credentials.' : 'Create a student account for monitoring, rating, and attendance.'}
+            </Text>
+
+            {mode === 'register' ? (
+              <>
+                <Input label="Full Name" value={studentName} onChangeText={setStudentName} placeholder="Enter your name" />
+                <Input label="Email" value={email} onChangeText={setEmail} placeholder="student@limkokwing.ac.ls" keyboardType="email-address" autoCapitalize="none" />
+                <Input label="Password" value={password} onChangeText={setPassword} placeholder="Create password" secureTextEntry autoCapitalize="none" />
+
+                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Faculty
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 14 }}>
+                  {FACULTIES.map(faculty => (
+                    <TouchableOpacity
+                      key={faculty.id}
+                      onPress={() => {
+                        setStudentFaculty(faculty.id);
+                        const nextClass = CLASSES.find(cls => cls.faculty === faculty.id);
+                        setStudentClass(nextClass?.code || '');
+                      }}
+                      style={{
+                        backgroundColor: studentFaculty === faculty.id ? theme.accent : theme.bgSecondary,
+                        borderRadius: 14,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        marginHorizontal: 4,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text style={{ color: studentFaculty === faculty.id ? theme.accentText : theme.text, fontSize: 12, fontWeight: '800' }}>
+                        {faculty.shortName}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Class
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 16 }}>
+                  {availableClasses.map(cls => (
+                    <TouchableOpacity
+                      key={cls.id}
+                      onPress={() => setStudentClass(cls.code)}
+                      style={{
+                        backgroundColor: studentClass === cls.code ? theme.accentDark : theme.bgSecondary,
+                        borderRadius: 14,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        marginHorizontal: 4,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text style={{ color: studentClass === cls.code ? theme.secondary : theme.text, fontSize: 12, fontWeight: '800' }}>
+                        {cls.code}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Btn title={loading ? 'Creating account...' : 'Register'} onPress={handleRegister} size="lg" disabled={loading} />
+              </>
+            ) : (
+              <>
+                <Input label="Email" value={email} onChangeText={setEmail} placeholder="your@limkokwing.ac.ls" keyboardType="email-address" autoCapitalize="none" />
+                <Input label="Password" value={password} onChangeText={setPassword} placeholder="Enter password" secureTextEntry autoCapitalize="none" />
+                <Btn title={loading ? 'Signing in...' : 'Sign in'} onPress={handleLogin} size="lg" disabled={loading} />
+              </>
+            )}
           </View>
         </Animated.View>
 

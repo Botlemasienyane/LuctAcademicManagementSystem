@@ -97,7 +97,7 @@ const FS_BASE64 = FileSystem.EncodingType?.Base64 || 'base64';
 export function ReportsScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { reports, addFeedback, courses } = useData();
+  const { reports, addFeedback, deleteReport, courses } = useData();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
@@ -365,6 +365,37 @@ export function ReportsScreen({ navigation, route }) {
                   />
                   <Btn title="Save Feedback" onPress={() => saveFeedback(report)} variant="outline" size="sm" />
                 </View>
+              ) : null}
+
+              {(report.createdByUid === user.id || user.role === 'FMG') ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    Alert.alert('Delete report', `Remove the report for ${report.courseCode}?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteReport(report.id);
+                            Alert.alert('Deleted', 'Report removed successfully.');
+                          } catch (error) {
+                            Alert.alert('Delete Failed', error.message || 'Could not delete this report right now.');
+                          }
+                        },
+                      },
+                    ])
+                  }
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: theme.dangerSoft || 'rgba(220,38,38,0.12)',
+                    borderRadius: 10,
+                    paddingVertical: 11,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: theme.danger, fontWeight: '900' }}>Delete Report</Text>
+                </TouchableOpacity>
               ) : null}
             </Card>
           ))

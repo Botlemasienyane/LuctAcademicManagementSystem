@@ -50,7 +50,7 @@ function HeroStat({ theme, palette, label, value, helper }) {
 export function AttendanceScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { attendance, addAttendance, courses } = useData();
+  const { attendance, addAttendance, deleteAttendance, courses } = useData();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -334,6 +334,37 @@ export function AttendanceScreen({ navigation }) {
               <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 999, height: 8, overflow: 'hidden' }}>
                 <View style={{ backgroundColor: rateTone.fill, width: `${rate}%`, height: '100%' }} />
               </View>
+
+              {(record.createdByUid === user.id || user.role === 'PL' || user.role === 'FMG') ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    Alert.alert('Delete attendance', `Remove attendance for ${record.courseCode}?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteAttendance(record.id);
+                            Alert.alert('Deleted', 'Attendance removed successfully.');
+                          } catch (error) {
+                            Alert.alert('Delete failed', error.message || 'Could not delete attendance right now.');
+                          }
+                        },
+                      },
+                    ])
+                  }
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: theme.dangerSoft || 'rgba(220,38,38,0.12)',
+                    borderRadius: 14,
+                    paddingVertical: 11,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: theme.danger, fontWeight: '900' }}>Delete Attendance</Text>
+                </TouchableOpacity>
+              ) : null}
             </Card>
           );
         })
@@ -345,7 +376,7 @@ export function AttendanceScreen({ navigation }) {
 export function RatingScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { ratings, addRating, courses } = useData();
+  const { ratings, addRating, deleteRating, courses } = useData();
   const [selectedLecturer, setSelectedLecturer] = useState('');
   const [selectedRating, setSelectedRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -623,6 +654,37 @@ export function RatingScreen({ navigation }) {
                 {rating.comment || 'No written comment was added for this rating.'}
               </Text>
             </View>
+
+            {(rating.createdByUid === user.id || user.role === 'FMG') ? (
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert('Delete rating', `Remove the rating for ${rating.lecturerName}?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await deleteRating(rating.id);
+                          Alert.alert('Deleted', 'Rating removed successfully.');
+                        } catch (error) {
+                          Alert.alert('Delete failed', error.message || 'Could not delete this rating right now.');
+                        }
+                      },
+                    },
+                  ])
+                }
+                style={{
+                  marginTop: 12,
+                  backgroundColor: theme.dangerSoft || 'rgba(220,38,38,0.12)',
+                  borderRadius: 14,
+                  paddingVertical: 11,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: theme.danger, fontWeight: '900' }}>Delete Rating</Text>
+              </TouchableOpacity>
+            ) : null}
           </Card>
         ))
       )}

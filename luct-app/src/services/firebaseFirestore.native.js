@@ -26,6 +26,30 @@ export function updateDocFields(db, collectionName, id, data) {
   return db.collection(collectionName).doc(id).set(data, { merge: true });
 }
 
+export function deleteDocFromCollection(db, collectionName, id) {
+  return db.collection(collectionName).doc(id).delete();
+}
+
+export function subscribeToCollection(db, collectionName, options = {}, onNext, onError) {
+  let ref = db.collection(collectionName);
+
+  if (options.orderByField) {
+    ref = ref.orderBy(options.orderByField, options.orderDirection || 'desc');
+  }
+
+  if (options.limitCount) {
+    ref = ref.limit(options.limitCount);
+  }
+
+  return ref.onSnapshot(
+    snapshot => {
+      const items = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+      onNext(items);
+    },
+    onError
+  );
+}
+
 export function serverTimestamp() {
   return firebase.firestore.FieldValue.serverTimestamp();
 }
