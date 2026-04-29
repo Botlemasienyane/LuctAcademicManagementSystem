@@ -16,14 +16,21 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.luctacademicmanagementsystem.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
+    "extra": {
+      "eas": {
+        "projectId": "57d79897-a277-4eee-aacc-85febdd26e56"
+      }
+    },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "owner": "isakoena"
   }
 }

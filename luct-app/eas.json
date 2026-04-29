@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 18.1.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "credentialsSource": "local",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBjCgluhbzRnOlvjvf4rImBnYowgX_MZfo",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "luct-lecturer-reporting.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "luct-lecturer-reporting",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "luct-lecturer-reporting.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "392723045899",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:392723045899:web:4be65728a6c4b40c5db10e",
+        "EXPO_PUBLIC_API_URL": "http://10.11.20.40:4000"
+      }
+    }
+  }
+}

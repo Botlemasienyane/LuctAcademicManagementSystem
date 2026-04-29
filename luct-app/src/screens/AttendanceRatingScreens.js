@@ -275,7 +275,7 @@ export function AttendanceScreen({ navigation }) {
 
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search attendance by class, course, date, lecturer..." />
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Attendance records</Text>
+      <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Attendance records</Text>
       {filteredAttendance.length === 0 ? (
         <EmptyState icon="ATT" message="No attendance records yet" />
       ) : (
@@ -609,7 +609,7 @@ export function RatingScreen({ navigation }) {
         </Card>
       ) : null}
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>All reviews</Text>
+      <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>All reviews</Text>
       {filteredRatings.length === 0 ? (
         <EmptyState icon="RATE" message="No reviews yet" />
       ) : (

@@ -24,12 +24,19 @@ export default function ProfileScreen({ navigation }) {
     [user]
   );
 
-  const shortcuts = [
-    { title: 'Modules', note: 'Explore all features', screen: 'Modules', icon: 'grid-outline' },
-    { title: 'Reports', note: 'Open reports', screen: 'Reports', icon: 'document-text-outline' },
-    { title: 'Monitoring', note: 'Open analytics', screen: 'Monitoring', icon: 'stats-chart-outline' },
-    { title: 'Attendance', note: 'View sessions', screen: 'Attendance', icon: 'calendar-outline' },
-  ];
+  const shortcuts = user?.role === 'Student'
+    ? [
+        { title: 'Modules', note: 'Explore all features', screen: 'Modules', icon: 'grid-outline' },
+        { title: 'Monitoring', note: 'Open analytics', screen: 'Monitoring', icon: 'stats-chart-outline' },
+        { title: 'Attendance', note: 'View sessions', screen: 'Attendance', icon: 'calendar-outline' },
+        { title: 'Rating', note: 'Rate lecturers', screen: 'Rating', icon: 'star-outline' },
+      ]
+    : [
+        { title: 'Modules', note: 'Explore all features', screen: 'Modules', icon: 'grid-outline' },
+        { title: 'Reports', note: 'Open reports', screen: 'Reports', icon: 'document-text-outline' },
+        { title: 'Monitoring', note: 'Open analytics', screen: 'Monitoring', icon: 'stats-chart-outline' },
+        { title: 'Attendance', note: 'View sessions', screen: 'Attendance', icon: 'calendar-outline' },
+      ];
 
   const pickPhoto = async () => {
     setUploading(true);
@@ -178,7 +185,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </Card>
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Fast shortcuts</Text>
+      <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Fast shortcuts</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
         {shortcuts.map(item => (
           <TouchableOpacity key={item.title} onPress={() => navigation.navigate(item.screen)} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>

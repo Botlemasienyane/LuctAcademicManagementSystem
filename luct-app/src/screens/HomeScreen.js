@@ -36,7 +36,7 @@ export default function HomeScreen({ navigation }) {
         ? report.faculty === user.faculty
         : user.role === 'Lecturer'
           ? report.lecturerName === user.name
-          : report.faculty === user.faculty
+          : false
   );
 
   const myClasses = getUserClasses(user, courses);
@@ -78,22 +78,19 @@ export default function HomeScreen({ navigation }) {
     },
   ];
 
-  const quickActions = [
-    { label: 'Reports', note: 'View submitted reports', icon: 'document-text-outline', screen: 'Reports' },
-    { label: 'Insights', note: 'Open course insights', icon: 'stats-chart-outline', screen: 'Monitoring' },
-    {
-      label: user.role === 'Student' ? 'Attendance' : 'New Report',
-      note: user.role === 'Student' ? 'View attendance records' : 'Submit a lecture report',
-      icon: user.role === 'Student' ? 'calendar-outline' : 'add-circle-outline',
-      screen: user.role === 'Student' ? 'Attendance' : 'ReportForm',
-    },
-    {
-      label: 'Rating',
-      note: user.role === 'Student' ? 'Rate lecturers' : 'Open lecturer ratings',
-      icon: 'star-outline',
-      screen: 'Rating',
-    },
-  ];
+  const quickActions = user.role === 'Student'
+    ? [
+        { label: 'Attendance', note: 'View attendance records', icon: 'calendar-outline', screen: 'Attendance' },
+        { label: 'Insights', note: 'Open course insights', icon: 'stats-chart-outline', screen: 'Monitoring' },
+        { label: 'Classes', note: 'View your class details', icon: 'people-outline', screen: 'Classes' },
+        { label: 'Rating', note: 'Rate lecturers', icon: 'star-outline', screen: 'Rating' },
+      ]
+    : [
+        { label: 'Reports', note: 'View submitted reports', icon: 'document-text-outline', screen: 'Reports' },
+        { label: 'Insights', note: 'Open course insights', icon: 'stats-chart-outline', screen: 'Monitoring' },
+        { label: 'New Report', note: 'Submit a lecture report', icon: 'add-circle-outline', screen: 'ReportForm' },
+        { label: 'Rating', note: 'Open lecturer ratings', icon: 'star-outline', screen: 'Rating' },
+      ];
 
   return (
     <AppShell
@@ -191,7 +188,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Animated.View>
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Overview</Text>
+<Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Overview</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginBottom: 10 }}>
         {analytics.map(item => (
           <View key={item.label} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
@@ -199,27 +196,27 @@ export default function HomeScreen({ navigation }) {
               style={{
                 backgroundColor: theme.bgCard,
                 borderRadius: 24,
-                padding: 16,
+                padding: 10,
                 borderWidth: 1,
                 borderColor: theme.border,
               }}
             >
               <View
                 style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 16,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
                   backgroundColor: item.color.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: 12,
+                  marginBottom: 6,
                 }}
               >
-                <MaterialCommunityIcons name={item.color.icon} size={23} color={item.color.ink} />
+                <MaterialCommunityIcons name={item.color.icon} size={18} color={item.color.ink} />
               </View>
-              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900' }}>{item.value}</Text>
-              <Text style={{ color: theme.textMuted, fontWeight: '700', marginTop: 4 }}>{item.label}</Text>
-              <Text style={{ color: item.color.ink, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{item.helper}</Text>
+              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>{item.value}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 4 }}>{item.label}</Text>
+              <Text style={{ color: item.color.ink, fontSize: 10, marginTop: 8, fontWeight: '800' }}>{item.helper}</Text>
             </View>
           </View>
         ))}
@@ -240,7 +237,7 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginTop: 8, marginBottom: 12 }}>Quick Access</Text>
+<Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginTop: 8, marginBottom: 12 }}>Quick Access</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
         {quickActions.map(action => (
           <TouchableOpacity key={action.label} onPress={() => navigation.navigate(action.screen)} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>

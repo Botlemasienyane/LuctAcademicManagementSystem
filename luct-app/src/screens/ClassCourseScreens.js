@@ -90,7 +90,9 @@ export function ClassesScreen({ navigation, route }) {
           {filterClass ? filterClass.name : 'Class overview'}
         </Text>
         <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          View classes, related courses, and reports for each class.
+          {user?.role === 'Student'
+            ? 'View your classes, attached courses, and attendance details.'
+            : 'View classes, related courses, and reports for each class.'}
         </Text>
       </View>
 
@@ -168,19 +170,35 @@ export function ClassesScreen({ navigation, route }) {
                     <Text style={{ color: theme.text, fontWeight: '900' }}>Open Courses</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={{ flex: 1, paddingHorizontal: 4 }}>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('Reports', { filterClass: cls })}
-                    style={{
-                      backgroundColor: roleTone.bg,
-                      borderRadius: 18,
-                      paddingVertical: 14,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ color: roleTone.text, fontWeight: '900' }}>Open Reports</Text>
-                  </TouchableOpacity>
-                </View>
+                {user?.role === 'Student' ? (
+                  <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('Attendance', { filterClass: cls })}
+                      style={{
+                        backgroundColor: roleTone.bg,
+                        borderRadius: 18,
+                        paddingVertical: 14,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: roleTone.text, fontWeight: '900' }}>Open Attendance</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('Reports', { filterClass: cls })}
+                      style={{
+                        backgroundColor: roleTone.bg,
+                        borderRadius: 18,
+                        paddingVertical: 14,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: roleTone.text, fontWeight: '900' }}>Open Reports</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </Card>
           );
@@ -415,7 +433,7 @@ export function CoursesScreen({ navigation, route }) {
       ) : byDay.length > 0 ? (
         byDay.map(({ day, items }) => (
           <View key={day} style={{ marginBottom: 12 }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', marginBottom: 10 }}>{day}</Text>
+            <Text style={{ color: theme.bgText, fontSize: 18, fontWeight: '900', marginBottom: 10 }}>{day}</Text>
             {items.map(course => {
               const timeTone = timeIcon(course.time);
               return (
@@ -593,7 +611,7 @@ export function LecturesScreen({ navigation }) {
         </View>
       </Card>
 
-      <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Teaching schedule</Text>
+      <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Teaching schedule</Text>
       {filteredCourses.length === 0 ? (
         <EmptyState icon="LEC" message="No lectures scheduled" />
       ) : (

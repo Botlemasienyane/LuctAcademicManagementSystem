@@ -19,7 +19,6 @@ import { useAuth } from '../context/AuthContext';
 const ALL_MENU_ITEMS = {
   Student: [
     { label: 'Home', icon: 'home-outline', screen: 'Home' },
-    { label: 'Reports', icon: 'document-text-outline', screen: 'Reports' },
     { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
     { label: 'Attendance', icon: 'calendar-outline', screen: 'Attendance' },
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
@@ -69,13 +68,23 @@ const ALL_MENU_ITEMS = {
   ],
 };
 
-// Bottom navigation keeps the main pages easy to reach.
-const bottomTabs = [
-  { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
-  { key: 'reports', label: 'Reports', screen: 'Reports', icon: 'document-text-outline', activeIcon: 'document-text' },
-  { key: 'analytics', label: 'Insights', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
-  { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
-];
+const getBottomTabs = (role) => {
+  if (role === 'Student') {
+    return [
+      { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
+      { key: 'attendance', label: 'Attend', screen: 'Attendance', icon: 'calendar-outline', activeIcon: 'calendar' },
+      { key: 'analytics', label: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+      { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+    ];
+  }
+
+  return [
+    { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
+    { key: 'reports', label: 'Reports', screen: 'Reports', icon: 'document-text-outline', activeIcon: 'document-text' },
+    { key: 'analytics', label: 'Insights', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+    { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+  ];
+};
 
 export function AppShell({
   navigation,
@@ -90,8 +99,8 @@ export function AppShell({
   headerBadge,
   onHeaderLogoPress,
 }) {
-  const { theme } = useTheme();
   const { user, profilePhoto, logout } = useAuth();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerX = useRef(new Animated.Value(-320)).current;
@@ -99,6 +108,7 @@ export function AppShell({
   const roleTone = getRoleTone(user?.role);
 
   const menuItems = useMemo(() => ALL_MENU_ITEMS[user?.role] || ALL_MENU_ITEMS.Student, [user?.role]);
+  const bottomTabs = useMemo(() => getBottomTabs(user?.role), [user?.role]);
   const shellAccent = accent || theme.accent;
 
   const openDrawer = () => {
@@ -290,10 +300,10 @@ export function AppShell({
           left: 18,
           right: 18,
           bottom: Math.max(insets.bottom, 10),
-          backgroundColor: theme.bgCard,
+          backgroundColor: theme.tabBar,
           borderRadius: 28,
           borderWidth: 1,
-          borderColor: theme.border,
+          borderColor: theme.tabBarBorder,
           paddingHorizontal: 16,
           paddingVertical: 10,
           flexDirection: 'row',

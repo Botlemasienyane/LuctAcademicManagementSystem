@@ -71,20 +71,20 @@ export const darkTheme = {
   secondary: PALETTE.secondary,
   // Dark mode keeps the page dark and cards light.
   bg: PALETTE.dark,
-  bgSecondary: PALETTE.dark,
-  bgCard: PALETTE.card,
-  bgCardAlt: PALETTE.cardAlt,
-  bgInput: PALETTE.muted,
+  bgSecondary: '#1C1C1C',
+  bgCard: '#1C1C1C',
+  bgCardAlt: '#252525',
+  bgInput: '#1C1C1C',
   // Text inside cards and inputs.
-  text: PALETTE.text,
-  textSecondary: PALETTE.text,
-  textMuted: PALETTE.textMuted,
+  text: PALETTE.secondary,
+  textSecondary: PALETTE.secondary,
+  textMuted: '#AAAAAA',
   // Text shown on the dark page background.
   bgText: PALETTE.secondary,
-  bgTextMuted: PALETTE.borderDark,
-  border: PALETTE.borderDark,
-  borderLight: PALETTE.border,
-  borderDark: PALETTE.borderDark,
+  bgTextMuted: '#AAAAAA',
+  border: '#2F2F2F',
+  borderLight: '#3A3A3A',
+  borderDark: '#444444',
   accent: PALETTE.accent,
   accentLight: PALETTE.accentLight,
   accentLighter: PALETTE.accentLighter,
@@ -93,7 +93,7 @@ export const darkTheme = {
   accentTextSoft: PALETTE.accentTextSoft,
   cardShadow: PALETTE.overlayLight,
   tabBar: PALETTE.dark,
-  tabBarBorder: PALETTE.borderDark,
+  tabBarBorder: '#2F2F2F',
   statusBar: 'light',
   badge: PALETTE.secondary,
   badgeText: PALETTE.primary,
@@ -126,7 +126,7 @@ export const getRoleLabel = (role) => {
     case 'PL':
       return 'Program Leader';
     case 'PRL':
-      return 'Program Representative Leader';
+      return 'Principal Lecturer';
     case 'YL':
       return 'Year Leader';
     default:
