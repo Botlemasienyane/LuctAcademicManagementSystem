@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { AppShell } from '../components/AppShell';
-import { Card, SearchBar, EmptyState, Input, Btn, Badge } from '../components/UI';
+import { Card, SearchBar, EmptyState, Input, Btn, Badge, PressableCard } from '../components/UI';
 import { getRoleTone, useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -14,6 +15,37 @@ const visualSets = [
   { bg: '#FFF4E8', ink: '#F56A37', icon: 'book-open-page-variant' },
   { bg: '#F2ECFF', ink: '#8256F2', icon: 'clock-outline' },
 ];
+
+const getCourseVisual = (course) => {
+  const name = `${course?.name || ''} ${course?.code || ''}`.toLowerCase();
+
+  if (name.includes('software') || name.includes('program') || name.includes('mobile') || name.includes('computer')) {
+    return { bg: '#EAF4FF', ink: '#2066D3', icon: 'laptop', label: 'Computing' };
+  }
+  if (name.includes('math') || name.includes('statistics') || name.includes('account')) {
+    return { bg: '#EEF9F1', ink: '#23834D', icon: 'calculator-variant-outline', label: 'Analytics' };
+  }
+  if (name.includes('design') || name.includes('creative') || name.includes('fashion')) {
+    return { bg: '#FFF0F4', ink: '#C2386B', icon: 'palette-outline', label: 'Design' };
+  }
+  if (name.includes('media') || name.includes('journal') || name.includes('broadcast')) {
+    return { bg: '#F3EEFF', ink: '#6F42D9', icon: 'microphone-outline', label: 'Media' };
+  }
+  if (name.includes('business') || name.includes('management') || name.includes('marketing')) {
+    return { bg: '#FFF5E8', ink: '#C26D1A', icon: 'briefcase-outline', label: 'Business' };
+  }
+
+  return { bg: '#EAF7FB', ink: '#2E9DBB', icon: 'book-education-outline', label: 'Course' };
+};
+
+const getScheduleLabel = (time = '') => {
+  const hour = parseInt(time, 10);
+  if (Number.isNaN(hour)) return 'Scheduled';
+  if (hour < 10) return 'Morning';
+  if (hour < 13) return 'Midday';
+  if (hour < 16) return 'Afternoon';
+  return 'Evening';
+};
 
 function MetricTile({ theme, set, label, value, helper }) {
   return (
@@ -50,10 +82,12 @@ function MetricTile({ theme, set, label, value, helper }) {
 export function ClassesScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { courses } = useData();
+  const { courses, attendance } = useData();
   const [search, setSearch] = useState('');
+  const [studentTab, setStudentTab] = useState('timetable');
   const filterClass = route?.params?.filterClass;
   const roleTone = getRoleTone(user?.role);
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   const classes = filterClass ? [filterClass] : getUserClasses(user, courses);
   const filtered = classes.filter(
@@ -62,15 +96,350 @@ export function ClassesScreen({ navigation, route }) {
       cls.code.toLowerCase().includes(search.toLowerCase()) ||
       cls.programme.toLowerCase().includes(search.toLowerCase())
   );
+  const studentClass = classes[0] || null;
+  const studentTimetable = getUserCourses(user, courses)
+    .filter(course =>
+      `${course.name} ${course.code} ${course.day} ${course.time} ${course.venue} ${course.lecturer}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const dayDiff = weekDays.indexOf(a.day) - weekDays.indexOf(b.day);
+      if (dayDiff !== 0) return dayDiff;
+      return `${a.time || ''}`.localeCompare(`${b.time || ''}`);
+    });
+  const timetableByDay = weekDays
+    .map(day => ({ day, items: studentTimetable.filter(course => course.day === day) }))
+    .filter(group => group.items.length > 0);
+  const studentAttendance = attendance
+    .filter(record => record.createdByUid === user?.id || record.studentName === user?.name)
+    .sort((a, b) => `${b.date || ''}`.localeCompare(`${a.date || ''}`));
+  const moduleAttendanceSummaries = getUserCourses(user, courses).map(course => {
+    const records = studentAttendance.filter(record => record.courseCode === course.code && record.classCode === course.class);
+    const totalSessions = records.length;
+    const presentSessions = records.filter(record => record.present > 0).length;
+    const percentage = totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0;
+    return {
+      ...course,
+      totalSessions,
+      presentSessions,
+      percentage,
+      lastDate: records[0]?.date || null,
+    };
+  });
 
   const studentCount = filtered.reduce((sum, cls) => sum + (cls.totalStudents || 0), 0);
+  const selectedModuleSummary =
+    moduleAttendanceSummaries.find(module => module.code === (route?.params?.courseCode || '')) || moduleAttendanceSummaries[0] || null;
+
+  if (user?.role === 'Student') {
+    return (
+      <AppShell
+        navigation={navigation}
+        activeTab="home"
+        title="Classes"
+        headerBadge={studentClass?.code || user?.class || 'Student'}
+        accent={roleTone.bg}
+      >
+        <View
+          style={{
+            backgroundColor: theme.bgCard,
+            borderRadius: 32,
+            padding: 18,
+            borderWidth: 1,
+            borderColor: theme.border,
+            marginTop: 18,
+            marginBottom: 14,
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              width: 150,
+              height: 150,
+              borderRadius: 75,
+              backgroundColor: roleTone.tint,
+              right: -26,
+              top: -50,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              backgroundColor: theme.accentLighter,
+              left: -26,
+              bottom: -34,
+            }}
+          />
+          <View style={{ alignSelf: 'flex-start', backgroundColor: theme.bgSecondary, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>{studentClass?.code || user?.class || 'No class'}</Text>
+          </View>
+          <Text style={{ color: theme.text, fontSize: 30, fontWeight: '900', marginTop: 14 }}>
+            {studentClass?.name || 'My classes'}
+          </Text>
+          {studentClass?.programme ? (
+            <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13, fontWeight: '700' }}>{studentClass.programme}</Text>
+          ) : null}
+        </View>
+
+        <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
+          <View style={{ flex: 1, paddingHorizontal: 5 }}>
+            <MetricTile theme={theme} set={visualSets[0]} label="Modules" value={studentTimetable.length} helper="on timetable" />
+          </View>
+          <View style={{ flex: 1, paddingHorizontal: 5 }}>
+            <MetricTile theme={theme} set={visualSets[1]} label="Days" value={timetableByDay.length} helper="with classes" />
+          </View>
+          <View style={{ flex: 1, paddingHorizontal: 5 }}>
+            <MetricTile theme={theme} set={visualSets[2]} label="Records" value={studentAttendance.length} helper="attendance saved" />
+          </View>
+        </View>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: theme.bgSecondary,
+            borderRadius: 22,
+            padding: 6,
+            marginBottom: 12,
+          }}
+        >
+          {[
+            { key: 'timetable', label: 'Timetable' },
+            { key: 'attendance', label: 'Attendance' },
+          ].map(tab => {
+            const active = studentTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => setStudentTab(tab.key)}
+                style={{
+                  flex: 1,
+                  borderRadius: 18,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  backgroundColor: active ? roleTone.bg : 'transparent',
+                }}
+              >
+                <Text style={{ color: active ? roleTone.text : theme.textMuted, fontWeight: '900' }}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {studentTab === 'timetable' ? (
+          <>
+            <SearchBar value={search} onChangeText={setSearch} placeholder="Search timetable..." />
+
+            {studentTimetable.length === 0 ? (
+              <EmptyState icon="TT" message={user?.class ? 'No timetable found' : 'No class assigned'} />
+            ) : (
+              timetableByDay.map(group => (
+                <View key={group.day} style={{ marginBottom: 16 }}>
+                  <View
+                    style={{
+                      alignSelf: 'flex-start',
+                      backgroundColor: roleTone.tint,
+                      borderRadius: 18,
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Text style={{ color: roleTone.bg, fontWeight: '900', fontSize: 13 }}>{group.day}</Text>
+                  </View>
+
+                  {group.items.map(course => {
+                    const courseVisual = getCourseVisual(course);
+                    const scheduleLabel = getScheduleLabel(course.time);
+                    return (
+                      <PressableCard
+                        key={course.id}
+                        style={{
+                          borderRadius: 28,
+                          marginBottom: 12,
+                          backgroundColor: theme.bgCard,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <View
+                          style={{
+                            position: 'absolute',
+                            width: 130,
+                            height: 130,
+                            borderRadius: 65,
+                            backgroundColor: courseVisual.bg,
+                            right: -34,
+                            top: -42,
+                          }}
+                        />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                          <View
+                            style={{
+                              width: 58,
+                              height: 58,
+                              borderRadius: 20,
+                              backgroundColor: courseVisual.bg,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 12,
+                            }}
+                          >
+                            <MaterialCommunityIcons name={courseVisual.icon} size={26} color={courseVisual.ink} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16 }}>{course.name}</Text>
+                            <Text style={{ color: courseVisual.ink, marginTop: 5, fontSize: 11, fontWeight: '800' }}>
+                              {courseVisual.label} • {scheduleLabel}
+                            </Text>
+                            <Text style={{ color: theme.textMuted, marginTop: 5, fontSize: 12 }}>{course.code}</Text>
+                          </View>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                          {[
+                            { label: 'Time', value: course.time },
+                            { label: 'Venue', value: course.venue },
+                            { label: 'Lecturer', value: course.lecturer },
+                          ].map(item => (
+                            <View key={`${course.id}_${item.label}`} style={{ width: item.label === 'Lecturer' ? '100%' : '50%', paddingHorizontal: 4, marginBottom: 8 }}>
+                              <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10 }}>
+                                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>{item.label.toUpperCase()}</Text>
+                                <Text style={{ color: theme.text, fontWeight: '800', marginTop: 4 }}>{item.value}</Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </PressableCard>
+                    );
+                  })}
+                </View>
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            {selectedModuleSummary ? (
+              <Card style={{ borderRadius: 26, marginBottom: 12, backgroundColor: selectedModuleSummary.percentage >= 75 ? theme.successSoft : theme.warningSoft }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18 }}>{selectedModuleSummary.name}</Text>
+                    <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>
+                      {selectedModuleSummary.code} • {selectedModuleSummary.lastDate || 'No attendance saved'}
+                    </Text>
+                  </View>
+                  <Badge label={`${selectedModuleSummary.percentage}%`} color={selectedModuleSummary.percentage >= 75 ? 'reviewed' : 'pending'} />
+                </View>
+                <View style={{ backgroundColor: theme.bgCard, borderRadius: 999, height: 10, overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      backgroundColor: selectedModuleSummary.percentage >= 75 ? theme.success : theme.warning,
+                      width: `${selectedModuleSummary.percentage}%`,
+                      height: '100%',
+                    }}
+                  />
+                </View>
+                <Text style={{ color: selectedModuleSummary.percentage >= 75 ? theme.success : theme.warning, fontWeight: '800', marginTop: 10 }}>
+                  {selectedModuleSummary.totalSessions > 0
+                    ? `${selectedModuleSummary.presentSessions}/${selectedModuleSummary.totalSessions} saved • ${selectedModuleSummary.percentage >= 75 ? 'Attendance is looking steady.' : 'Attendance needs follow-up for this module.'}`
+                    : 'No attendance has been recorded for this module yet.'}
+                </Text>
+              </Card>
+            ) : null}
+
+            {moduleAttendanceSummaries.length === 0 ? (
+              <EmptyState icon="ATT" message="No modules found for this class" />
+            ) : (
+              moduleAttendanceSummaries.map(module => {
+                const tone = module.percentage >= 75 ? theme.success : theme.warning;
+                const isSelected = selectedModuleSummary?.code === module.code;
+                return (
+                  <PressableCard
+                    key={module.id}
+                    onPress={() => navigation.setParams?.({ courseCode: module.code })}
+                    style={{
+                      borderRadius: 26,
+                      marginBottom: 12,
+                      borderWidth: 1,
+                      borderColor: isSelected ? roleTone.bg : theme.border,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                      <View
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 18,
+                          backgroundColor: isSelected ? roleTone.tint : theme.bgSecondary,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}
+                      >
+                        <MaterialCommunityIcons name="book-education-outline" size={24} color={roleTone.bg} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontWeight: '900', fontSize: 15 }}>{module.name}</Text>
+                        <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>
+                          {module.code} • {module.totalSessions} week{module.totalSessions === 1 ? '' : 's'}
+                        </Text>
+                      </View>
+                      <Badge label={`${module.percentage}%`} color={module.percentage >= 75 ? 'reviewed' : 'pending'} />
+                    </View>
+
+                    <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 999, height: 8, overflow: 'hidden', marginBottom: 10 }}>
+                      <View style={{ backgroundColor: tone, width: `${module.percentage}%`, height: '100%' }} />
+                    </View>
+
+                    <View style={{ flexDirection: 'row', marginHorizontal: -4 }}>
+                      <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                        <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 16, padding: 12 }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>STATUS</Text>
+                          <Text style={{ color: theme.text, fontWeight: '800', marginTop: 4 }}>
+                            {module.percentage >= 75 ? 'Good' : module.totalSessions > 0 ? 'Needs follow-up' : 'No records'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                        <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 16, padding: 12 }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>LAST MARK</Text>
+                          <Text style={{ color: theme.text, fontWeight: '800', marginTop: 4 }}>{module.lastDate || 'Not yet'}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('Attendance', { courseCode: module.code })}
+                      style={{
+                        marginTop: 12,
+                        backgroundColor: roleTone.bg,
+                        borderRadius: 16,
+                        paddingVertical: 12,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: roleTone.text, fontWeight: '900' }}>Mark {module.code}</Text>
+                    </TouchableOpacity>
+                  </PressableCard>
+                );
+              })
+            )}
+          </>
+        )}
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
       navigation={navigation}
       activeTab="home"
       title="Classes"
-      subtitle="Assignment-ready class management"
       headerBadge={`${filtered.length} classes`}
       accent={roleTone.bg}
     >
@@ -88,11 +457,6 @@ export function ClassesScreen({ navigation, route }) {
         <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Academic structure</Text>
         <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>
           {filterClass ? filterClass.name : 'Class overview'}
-        </Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          {user?.role === 'Student'
-            ? 'View your classes, attached courses, and attendance details.'
-            : 'View classes, related courses, and reports for each class.'}
         </Text>
       </View>
 
@@ -181,7 +545,7 @@ export function ClassesScreen({ navigation, route }) {
                         alignItems: 'center',
                       }}
                     >
-                      <Text style={{ color: roleTone.text, fontWeight: '900' }}>Open Attendance</Text>
+                      <Text style={{ color: roleTone.text, fontWeight: '900' }}>Mark Attendance</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -271,14 +635,6 @@ export function CoursesScreen({ navigation, route }) {
     }
   };
 
-  const timeIcon = time => {
-    const hour = parseInt(time, 10);
-    if (hour < 10) return { label: 'AM', bg: '#EEF6FF', ink: '#2B6EF2' };
-    if (hour < 12) return { label: 'MID', bg: '#F2ECFF', ink: '#8256F2' };
-    if (hour < 14) return { label: 'PM', bg: '#FFF4E8', ink: '#F56A37' };
-    return { label: 'LATE', bg: '#EAF8EF', ink: '#2BAF6A' };
-  };
-
   const totalClasses = new Set(filtered.map(course => course.class)).size;
 
   return (
@@ -286,7 +642,6 @@ export function CoursesScreen({ navigation, route }) {
       navigation={navigation}
       activeTab="home"
       title={filterClass ? `${filterClass.code} Courses` : 'Courses'}
-      subtitle="Course assignment and lecture schedule"
       headerBadge={`${filtered.length} courses`}
       accent={roleTone.bg}
     >
@@ -306,9 +661,6 @@ export function CoursesScreen({ navigation, route }) {
             <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Academic planning</Text>
             <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>
               {filterClass ? filterClass.name : 'Courses and assignments'}
-            </Text>
-            <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-              Manage course allocation and review the class timetable.
             </Text>
           </View>
           {user.role === 'PL' && (
@@ -337,7 +689,7 @@ export function CoursesScreen({ navigation, route }) {
           <MetricTile theme={theme} set={visualSets[0]} label="Classes" value={totalClasses} helper="covered here" />
         </View>
         <View style={{ flex: 1, paddingHorizontal: 5 }}>
-          <MetricTile theme={theme} set={visualSets[2]} label="Days" value={byDay.length} helper="active schedule" />
+          <MetricTile theme={theme} set={visualSets[2]} label="Days" value={byDay.length} helper="teaching days" />
         </View>
       </View>
 
@@ -435,7 +787,8 @@ export function CoursesScreen({ navigation, route }) {
           <View key={day} style={{ marginBottom: 12 }}>
             <Text style={{ color: theme.bgText, fontSize: 18, fontWeight: '900', marginBottom: 10 }}>{day}</Text>
             {items.map(course => {
-              const timeTone = timeIcon(course.time);
+              const courseVisual = getCourseVisual(course);
+              const scheduleLabel = getScheduleLabel(course.time);
               return (
                 <Card key={course.id} style={{ borderRadius: 26 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -444,16 +797,19 @@ export function CoursesScreen({ navigation, route }) {
                         width: 54,
                         height: 54,
                         borderRadius: 18,
-                        backgroundColor: timeTone.bg,
+                        backgroundColor: courseVisual.bg,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: 12,
                       }}
                     >
-                      <Text style={{ color: timeTone.ink, fontWeight: '900', fontSize: 12 }}>{timeTone.label}</Text>
+                      <MaterialCommunityIcons name={courseVisual.icon} size={24} color={courseVisual.ink} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontWeight: '900', fontSize: 15 }}>{course.name}</Text>
+                      <Text style={{ color: courseVisual.ink, marginTop: 4, fontSize: 11, fontWeight: '800' }}>
+                        {courseVisual.label} â€¢ {scheduleLabel}
+                      </Text>
                       <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>
                         {course.code} • {course.lecturer}
                       </Text>
@@ -546,7 +902,6 @@ export function LecturesScreen({ navigation }) {
       navigation={navigation}
       activeTab="home"
       title="Lectures"
-      subtitle="Teaching schedule and load"
       headerBadge={`${filteredCourses.length} lectures`}
       accent={roleTone.bg}
     >
@@ -563,9 +918,6 @@ export function LecturesScreen({ navigation }) {
       >
         <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Lecture planning</Text>
         <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Teaching schedule</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          Review scheduled classes, venues, and teaching days.
-        </Text>
       </View>
 
       <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
@@ -654,6 +1006,300 @@ export function LecturesScreen({ navigation }) {
             </View>
           </Card>
         ))
+      )}
+    </AppShell>
+  );
+}
+
+export function CourseOutlinesScreen({ navigation }) {
+  const { theme } = useTheme();
+  const { user } = useAuth();
+  const { courses, courseOutlines, saveCourseOutline, deleteCourseOutline } = useData();
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const roleTone = getRoleTone(user?.role);
+  const myClasses = getUserClasses(user, courses);
+  const myCourses = getUserCourses(user, courses);
+  const availableClasses = myClasses;
+  const [outlineForm, setOutlineForm] = useState({
+    classCode: availableClasses[0]?.code || '',
+    courseCode: myCourses[0]?.code || '',
+    title: '',
+    note: '',
+    selectedFile: null,
+  });
+
+  const canManage = user.role === 'PL' || user.role === 'FMG';
+  const visibleOutlines = courseOutlines.filter(outline => {
+    if (user.role === 'FMG') return true;
+    if (user.role === 'PL') return outline.faculty === user.faculty;
+    if (user.role === 'PRL' || user.role === 'Lecturer') {
+      return myCourses.some(course => course.code === outline.courseCode && course.class === outline.classCode);
+    }
+    return outline.classCode === user.class;
+  });
+  const filteredOutlines = visibleOutlines.filter(outline =>
+    `${outline.title} ${outline.courseCode} ${outline.attachmentName || ''}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+  const selectedCourse = myCourses.find(course => course.code === outlineForm.courseCode && course.class === outlineForm.classCode);
+
+  const updateOutlineForm = (key, value) => {
+    setOutlineForm(current => ({ ...current, [key]: value }));
+  };
+
+  const pickOutlineDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      multiple: false,
+      copyToCacheDirectory: true,
+      type: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+    });
+
+    if (result.canceled || !result.assets?.[0]) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    updateOutlineForm('selectedFile', {
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType,
+      size: asset.size,
+      file: asset.file,
+    });
+  };
+
+  const handleSaveOutline = async () => {
+    if (!outlineForm.classCode || !outlineForm.courseCode || !outlineForm.title || !outlineForm.selectedFile) {
+      Alert.alert('Missing details', 'Please select a class, course, title, and document.');
+      return;
+    }
+
+    const course = myCourses.find(item => item.code === outlineForm.courseCode && item.class === outlineForm.classCode);
+    await saveCourseOutline({
+      ...outlineForm,
+      courseName: course?.name || '',
+      faculty: user.faculty,
+      createdByName: user.name,
+    });
+    setOutlineForm({
+      classCode: availableClasses[0]?.code || '',
+      courseCode: myCourses[0]?.code || '',
+      title: '',
+      note: '',
+      selectedFile: null,
+    });
+    setShowForm(false);
+    Alert.alert('Saved', 'Course outline details saved successfully.');
+  };
+
+  return (
+    <AppShell
+      navigation={navigation}
+      activeTab="home"
+      title="Module Outlines"
+      headerBadge={`${filteredOutlines.length} outline${filteredOutlines.length === 1 ? '' : 's'}`}
+      accent={roleTone.bg}
+    >
+      <View
+        style={{
+          backgroundColor: theme.bgCard,
+          borderRadius: 30,
+          padding: 18,
+          borderWidth: 1,
+          borderColor: theme.border,
+          marginTop: 18,
+          marginBottom: 16,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Academic documents</Text>
+            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Module outlines</Text>
+          </View>
+          {canManage ? (
+            <TouchableOpacity
+              onPress={() => setShowForm(value => !value)}
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 20,
+                backgroundColor: roleTone.bg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name={showForm ? 'close' : 'attach'} size={24} color={roleTone.text} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
+      <SearchBar value={search} onChangeText={setSearch} placeholder="Search outlines, modules, or file names..." />
+
+      {showForm && canManage ? (
+        <Card style={{ borderRadius: 28, borderWidth: 2, borderColor: roleTone.bg, marginBottom: 14 }}>
+          <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, marginBottom: 14 }}>Attach module outline</Text>
+
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' }}>
+            Class
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 10 }}>
+            {availableClasses.map(cls => (
+              <TouchableOpacity
+                key={cls.id}
+                onPress={() => updateOutlineForm('classCode', cls.code)}
+                style={{
+                  backgroundColor: outlineForm.classCode === cls.code ? roleTone.bg : theme.bgSecondary,
+                  borderRadius: 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  marginHorizontal: 4,
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ color: outlineForm.classCode === cls.code ? roleTone.text : theme.text, fontSize: 12, fontWeight: '800' }}>
+                  {cls.code}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' }}>
+            Module
+          </Text>
+          <View style={{ marginBottom: 10 }}>
+            {myCourses
+              .filter(course => course.class === outlineForm.classCode)
+              .map(course => (
+                <TouchableOpacity
+                  key={course.id}
+                  onPress={() => updateOutlineForm('courseCode', course.code)}
+                  style={{
+                    backgroundColor: outlineForm.courseCode === course.code ? roleTone.bg : theme.bgSecondary,
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text style={{ color: outlineForm.courseCode === course.code ? roleTone.text : theme.text, fontWeight: '800', fontSize: 13 }}>
+                    {course.name}
+                  </Text>
+                  <Text style={{ color: outlineForm.courseCode === course.code ? roleTone.text : theme.textMuted, fontSize: 11, marginTop: 3 }}>
+                    {course.code}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+          </View>
+
+          <Input label="Outline title" value={outlineForm.title} onChangeText={value => updateOutlineForm('title', value)} placeholder="e.g. Semester 1 Course Outline" />
+          <Btn title={outlineForm.selectedFile ? 'Change Document' : 'Choose PDF or Word Document'} onPress={pickOutlineDocument} variant="outline" />
+          {outlineForm.selectedFile ? (
+            <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 16, padding: 12, marginBottom: 14 }}>
+              <Text style={{ color: theme.text, fontWeight: '800' }}>{outlineForm.selectedFile.name}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                {outlineForm.selectedFile.mimeType || 'Document'} • {outlineForm.selectedFile.size ? `${Math.round(outlineForm.selectedFile.size / 1024)} KB` : 'Size unavailable'}
+              </Text>
+            </View>
+          ) : null}
+          <Input label="Notes" value={outlineForm.note} onChangeText={value => updateOutlineForm('note', value)} placeholder="Optional note for lecturers and students" multiline numberOfLines={3} />
+
+          <Btn title="Save Outline" onPress={handleSaveOutline} />
+        </Card>
+      ) : null}
+
+      {filteredOutlines.length === 0 ? (
+        <EmptyState icon="CRS" message="No module outlines have been shared yet." />
+      ) : (
+        filteredOutlines.map(outline => {
+          const course = courses.find(entry => entry.code === outline.courseCode && entry.class === outline.classCode) || selectedCourse;
+          const courseVisual = getCourseVisual(course);
+          const documentUrl = outline.attachmentUrl || outline.outlineLink;
+
+          return (
+            <Card key={outline.id} style={{ borderRadius: 26 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 18,
+                    backgroundColor: courseVisual.bg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <MaterialCommunityIcons name={courseVisual.icon} size={24} color={courseVisual.ink} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.text, fontWeight: '900', fontSize: 15 }}>{outline.title}</Text>
+                  <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>
+                    {outline.courseName || course?.name || outline.courseCode} • {outline.classCode}
+                  </Text>
+                </View>
+                <Badge label={outline.status || outline.courseCode} color={outline.status || 'reviewed'} />
+              </View>
+
+              <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 18, padding: 14, marginBottom: 12 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>ATTACHMENT</Text>
+                <Text style={{ color: theme.text, marginTop: 6, fontWeight: '700' }}>
+                  {outline.attachmentName || 'Outline document'}
+                </Text>
+                {outline.note ? (
+                  <Text style={{ color: theme.textMuted, marginTop: 6, lineHeight: 18 }}>
+                    {outline.note}
+                  </Text>
+                ) : null}
+              </View>
+
+              <View style={{ flexDirection: 'row', marginHorizontal: -4 }}>
+                <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                  <Btn
+                    title="Open Document"
+                    onPress={async () => {
+                      if (!documentUrl) {
+                        Alert.alert('Unavailable', 'No document is attached to this outline yet.');
+                        return;
+                      }
+                      const supported = await Linking.canOpenURL(documentUrl);
+                      if (!supported) {
+                        Alert.alert('Unavailable', 'This document cannot be opened on this device.');
+                        return;
+                      }
+                      await Linking.openURL(documentUrl);
+                    }}
+                  />
+                </View>
+                {canManage ? (
+                  <View style={{ flex: 1, paddingHorizontal: 4 }}>
+                    <Btn
+                      title="Delete"
+                      variant="danger"
+                      onPress={() =>
+                        Alert.alert('Delete outline', `Remove ${outline.title}?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await deleteCourseOutline(outline);
+                            },
+                          },
+                        ])
+                      }
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </Card>
+          );
+        })
       )}
     </AppShell>
   );

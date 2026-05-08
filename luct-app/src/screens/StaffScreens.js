@@ -68,7 +68,6 @@ export function ProgrammeListScreen({ navigation }) {
       navigation={navigation}
       activeTab="home"
       title="Programmes"
-      subtitle="Programme-level academic structure"
       headerBadge={`${filtered.length} programmes`}
       accent={roleTone.bg}
     >
@@ -85,9 +84,6 @@ export function ProgrammeListScreen({ navigation }) {
       >
         <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Programme control</Text>
         <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Academic programmes</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          Browse programmes and open their classes, courses, and reports.
-        </Text>
       </View>
 
       <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
@@ -174,7 +170,6 @@ export function ProgrammeDetailScreen({ navigation, route }) {
       navigation={navigation}
       activeTab="home"
       title={programme.name}
-      subtitle={`${programme.id} • ${faculty?.shortName}`}
       headerBadge={`${programme.years} yrs`}
       accent={roleTone.bg}
     >
@@ -191,9 +186,6 @@ export function ProgrammeDetailScreen({ navigation, route }) {
       >
         <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Programme detail</Text>
         <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>{programme.name}</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          {faculty?.name} • {programme.id} • {programme.years} academic years
-        </Text>
       </View>
 
       <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
@@ -325,7 +317,6 @@ export function StaffListScreen({ navigation }) {
       navigation={navigation}
       activeTab="home"
       title="Staff"
-      subtitle="Faculty and academic leadership"
       headerBadge={`${filtered.length} staff`}
       accent={roleTone.bg}
     >
@@ -342,9 +333,6 @@ export function StaffListScreen({ navigation }) {
       >
         <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>People overview</Text>
         <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Academic staff</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-          Browse staff by faculty and role.
-        </Text>
       </View>
 
       <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
@@ -418,7 +406,6 @@ export function StaffDetailScreen({ navigation, route }) {
       navigation={navigation}
       activeTab="profile"
       title="Staff Profile"
-      subtitle={staff.role}
       headerBadge={faculty?.shortName || 'LUCT'}
       accent={roleTone.bg}
     >
@@ -462,7 +449,6 @@ export function StaffDetailScreen({ navigation, route }) {
       <Card style={{ borderRadius: 26 }}>
         <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, marginBottom: 10 }}>Faculty detail</Text>
         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{faculty?.name || 'N/A'}</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6 }}>{faculty?.shortName}</Text>
       </Card>
 
       {staffReports.length > 0 ? (

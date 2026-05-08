@@ -13,6 +13,10 @@ service cloud.firestore {
       return signedIn() && userDoc().exists() ? userDoc().data.role : null;
     }
 
+    function userFaculty() {
+      return signedIn() && userDoc().exists() ? userDoc().data.faculty : null;
+    }
+
     function isAdminRole() {
       return userRole() in ['PRL', 'PL', 'FMG'];
     }
@@ -27,6 +31,11 @@ service cloud.firestore {
 
     function isCourseManager() {
       return userRole() in ['PL', 'FMG'];
+    }
+
+    function managesFaculty(faculty) {
+      return userRole() == 'FMG'
+        || (userRole() == 'PL' && faculty is string && faculty == userFaculty());
     }
 
     function isAttendanceManager() {
@@ -80,12 +89,26 @@ service cloud.firestore {
 
     function validCourse() {
       return request.resource.data.class is string
+        && request.resource.data.faculty is string
         && request.resource.data.code is string
         && request.resource.data.name is string
         && request.resource.data.lecturer is string
         && request.resource.data.venue is string
         && request.resource.data.time is string
         && request.resource.data.day is string;
+    }
+
+    function validCourseOutline() {
+      return request.resource.data.classCode is string
+        && request.resource.data.courseCode is string
+        && request.resource.data.courseName is string
+        && request.resource.data.title is string
+        && request.resource.data.faculty is string
+        && request.resource.data.status is string
+        && request.resource.data.status in ['pending', 'assigned', 'reviewed']
+        && request.resource.data.createdByUid is string
+        && request.resource.data.updatedByUid is string
+        && request.resource.data.createdByName is string;
     }
 
     match /users/{userId} {
@@ -117,9 +140,24 @@ service cloud.firestore {
 
     match /courses/{courseId} {
       allow read: if signedIn();
-      allow create: if isCourseManager() && validCourse();
-      allow update: if isCourseManager();
-      allow delete: if isCourseManager();
+      allow create: if isCourseManager() && validCourse() && managesFaculty(request.resource.data.faculty);
+      allow update: if isCourseManager()
+        && validCourse()
+        && managesFaculty(resource.data.faculty)
+        && managesFaculty(request.resource.data.faculty);
+      allow delete: if isCourseManager() && managesFaculty(resource.data.faculty);
+    }
+
+    match /courseOutlines/{outlineId} {
+      allow read: if signedIn();
+      allow create: if isCourseManager()
+        && validCourseOutline()
+        && managesFaculty(request.resource.data.faculty);
+      allow update: if isCourseManager()
+        && validCourseOutline()
+        && managesFaculty(resource.data.faculty)
+        && managesFaculty(request.resource.data.faculty);
+      allow delete: if false;
     }
   }
 }

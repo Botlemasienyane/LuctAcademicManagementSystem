@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserDoc() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return hasUserDoc() ? userDoc().data.role : null;
+    }
+
+    function canManageOutlineFiles() {
+      return userRole() in ['PL', 'FMG'];
+    }
+
+    match /course-outlines/{outlineId}/{fileName} {
+      allow read: if signedIn();
+      allow write: if canManageOutlineFiles();
+    }
+  }
+}

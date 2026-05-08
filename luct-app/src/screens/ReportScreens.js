@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StatusBar, Alert, Platform, M
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
-import { getRoleLabel, useTheme } from '../context/ThemeContext';
+import { getAttendanceMessage, getRoleTone, useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { FACULTIES, WEEKS } from '../data/seedData';
@@ -104,6 +104,10 @@ export function ReportsScreen({ navigation, route }) {
   const [filter, setFilter] = useState('All');
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
   const filterClass = route?.params?.filterClass;
+  const roleTone = getRoleTone(user.role);
+  const scopedClasses = getUserClasses(user, courses);
+  const scopedClassCodes = new Set(scopedClasses.map(cls => cls.code));
+  const scopedClassNames = new Set(scopedClasses.map(cls => cls.name));
 
   useEffect(() => {
     if (user.role === 'Student') {
@@ -117,8 +121,10 @@ export function ReportsScreen({ navigation, route }) {
     // Each role only sees reports allowed for that role.
     user.role === 'FMG'
       ? reports
-      : user.role === 'PL' || user.role === 'PRL'
+      : user.role === 'PL'
       ? reports.filter(report => report.faculty === user.faculty)
+      : user.role === 'PRL'
+      ? reports.filter(report => scopedClassCodes.has(report.classCode) || scopedClassNames.has(report.className))
       : user.role === 'Lecturer'
       ? reports.filter(report => lecturerMatchesUser(report.lecturerName, user.name))
       : reports.filter(report => report.classCode === user.class);
@@ -137,6 +143,41 @@ export function ReportsScreen({ navigation, route }) {
   });
 
   const reviewedCount = filtered.filter(report => report.status === 'reviewed').length;
+  const editableCount = filtered.filter(report => report.status !== 'reviewed' && report.createdByUid === user.id).length;
+  const reportTitle =
+    user.role === 'PRL'
+      ? 'Stream Reports'
+      : user.role === 'PL'
+        ? 'Faculty Reports'
+        : user.role === 'Lecturer'
+          ? 'My Reports'
+          : user.role === 'FMG'
+            ? 'University Reports'
+            : 'Reports';
+  const reportSubtitle =
+    user.role === 'PRL'
+      ? ''
+      : user.role === 'PL'
+        ? ''
+      : user.role === 'Lecturer'
+        ? ''
+          : user.role === 'FMG'
+            ? ''
+            : '';
+  const feedbackLabel =
+    user.role === 'PRL'
+      ? 'PRL Feedback'
+      : user.role === 'PL'
+        ? 'PL Feedback'
+        : user.role === 'FMG'
+          ? 'FMG Feedback'
+          : 'Feedback';
+  const feedbackPlaceholder =
+    user.role === 'PRL'
+      ? 'Write PRL feedback for this lecturer report'
+      : user.role === 'PL'
+        ? 'Write programme leader feedback for this report'
+        : 'Write review feedback for this lecturer report';
 
   const exportCSV = async () => {
     const csv = buildCSV(filtered);
@@ -242,8 +283,8 @@ export function ReportsScreen({ navigation, route }) {
     <AppShell
       navigation={navigation}
       activeTab="reports"
-      title="Reports"
-      accent={theme.accentDark}
+      title={reportTitle}
+      accent={roleTone.bg}
     >
       <View
         style={{
@@ -258,8 +299,8 @@ export function ReportsScreen({ navigation, route }) {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>Reports</Text>
-            <Text style={{ color: theme.textMuted, marginTop: 4 }}>{getRoleLabel(user.role)}</Text>
+            <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{reportTitle}</Text>
+            {reportSubtitle ? <Text style={{ color: theme.textMuted, marginTop: 4 }}>{reportSubtitle}</Text> : null}
           </View>
           <TouchableOpacity
             onPress={handleExport}
@@ -276,10 +317,20 @@ export function ReportsScreen({ navigation, route }) {
 
         <View style={{ flexDirection: 'row', marginBottom: 16, marginHorizontal: -4 }}>
           <StatCard label="Visible Reports" value={filtered.length} />
-          <StatCard label="Reviewed Reports" value={reviewedCount} />
+          <StatCard label={user.role === 'Lecturer' ? 'Editable Reports' : 'Reviewed Reports'} value={user.role === 'Lecturer' ? editableCount : reviewedCount} />
         </View>
 
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Search reports..." />
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder={
+            user.role === 'PRL'
+              ? 'Search stream reports...'
+              : user.role === 'PL'
+                ? 'Search faculty reports...'
+                : 'Search reports...'
+          }
+        />
 
         <View style={{ flexDirection: 'row', backgroundColor: theme.bgSecondary, borderRadius: 12, padding: 4, marginBottom: 16 }}>
           {['All', 'Submitted', 'Reviewed'].map(status => (
@@ -311,7 +362,18 @@ export function ReportsScreen({ navigation, route }) {
         )}
 
         {filtered.length === 0 ? (
-          <EmptyState icon="REP" message="No reports found" />
+          <EmptyState
+            icon="REP"
+            message={
+              user.role === 'Lecturer'
+                ? 'No lecturer reports submitted yet'
+                : user.role === 'PRL'
+                  ? 'No lecturer reports in your stream yet'
+                  : user.role === 'PL'
+                    ? 'No reports available for your faculty yet'
+                    : 'No reports available right now'
+            }
+          />
         ) : (
           filtered.map(report => (
             <Card key={report.id}>
@@ -363,13 +425,20 @@ export function ReportsScreen({ navigation, route }) {
                   <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>REVIEW FEEDBACK</Text>
                   <Text style={{ color: theme.text, fontSize: 13, marginTop: 3 }}>{report.feedback}</Text>
                 </View>
+              ) : user.role === 'Lecturer' && report.createdByUid === user.id && report.status !== 'reviewed' ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                    You can still update this report before it is reviewed.
+                  </Text>
+                  <Btn title="Edit Report" onPress={() => navigation.navigate('ReportForm', { reportId: report.id })} variant="outline" size="sm" />
+                </View>
               ) : user.role === 'PRL' || user.role === 'PL' || user.role === 'FMG' ? (
                 <View>
                   <Input
-                    label="Add Feedback"
+                    label={feedbackLabel}
                     value={feedbackDrafts[report.id] || ''}
                     onChangeText={value => setFeedbackDrafts(current => ({ ...current, [report.id]: value }))}
-                    placeholder="Write review feedback for this lecturer report"
+                    placeholder={feedbackPlaceholder}
                     multiline
                     numberOfLines={3}
                   />
@@ -385,12 +454,15 @@ export function ReportsScreen({ navigation, route }) {
   );
 }
 
-export function ReportFormScreen({ navigation }) {
+export function ReportFormScreen({ navigation, route }) {
   const { theme, isDark } = useTheme();
   const { user } = useAuth();
-  const { addReport, addAttendance, courses } = useData();
+  const { reports, attendance, addReport, updateReport, addAttendance, updateAttendance, courses } = useData();
   const myClasses = getUserClasses(user, courses);
   const myCourses = getUserCourses(user, courses);
+  const reportId = route?.params?.reportId;
+  const existingReport = reports.find(report => report.id === reportId);
+  const linkedAttendance = attendance.find(record => record.reportId === reportId);
   const [picker, setPicker] = useState({ open: false, title: '', items: [], getLabel: null, onPick: null });
   const [pickerSearch, setPickerSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -416,10 +488,43 @@ export function ReportFormScreen({ navigation }) {
   });
 
   const [form, setForm] = useState(() => {
+    if (existingReport) {
+      return buildFormState(
+        { name: existingReport.className, code: existingReport.classCode, totalStudents: existingReport.totalRegistered },
+        {
+          name: existingReport.courseName,
+          code: existingReport.courseCode,
+          venue: existingReport.venue,
+          time: existingReport.scheduledTime,
+        }
+      );
+    }
     const initialClass = myClasses[0];
     const initialCourse = myCourses.find(course => course.class === initialClass?.code) || myCourses[0];
     return buildFormState(initialClass, initialCourse);
   });
+
+  useEffect(() => {
+    if (!existingReport) return;
+    setForm({
+      facultyName: existingReport.facultyName || '',
+      className: existingReport.className || '',
+      classCode: existingReport.classCode || '',
+      week: existingReport.week || WEEKS[5],
+      dateOfLecture: existingReport.dateOfLecture || new Date().toISOString().split('T')[0],
+      courseName: existingReport.courseName || '',
+      courseCode: existingReport.courseCode || '',
+      lecturerName: existingReport.lecturerName || user.name,
+      actualStudents: String(existingReport.actualStudents ?? ''),
+      totalRegistered: String(existingReport.totalRegistered ?? ''),
+      venue: existingReport.venue || '',
+      scheduledTime: existingReport.scheduledTime || '',
+      topicTaught: existingReport.topicTaught || '',
+      learningOutcomes: existingReport.learningOutcomes || '',
+      recommendations: existingReport.recommendations || '',
+      faculty: existingReport.faculty || user.faculty,
+    });
+  }, [existingReport, user.faculty, user.name]);
 
   const availableCourses = useMemo(
     () => myCourses.filter(course => course.class === form.classCode),
@@ -473,6 +578,11 @@ export function ReportFormScreen({ navigation }) {
       return;
     }
 
+    if (existingReport?.status === 'reviewed') {
+      Alert.alert('Locked Report', 'This report has already been reviewed and can no longer be edited.');
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
 
@@ -481,17 +591,40 @@ export function ReportFormScreen({ navigation }) {
       const totalRegistered = parseInt(form.totalRegistered, 10) || 0;
 
       // Save the report and also save the attendance record from the same submission.
-      await addReport({ ...form, actualStudents, totalRegistered });
-      await addAttendance({
-        classCode: form.classCode,
-        courseCode: form.courseCode,
-        date: form.dateOfLecture,
-        present: actualStudents,
-        total: totalRegistered,
-        lecturerName: user.name,
-      });
+      const reportPayload = { ...form, actualStudents, totalRegistered };
 
-      Alert.alert('Submitted', 'Report submitted successfully.', [
+      if (existingReport) {
+        await updateReport(existingReport.id, {
+          ...reportPayload,
+          updatedAt: new Date().toISOString(),
+          updatedByUid: user.id,
+        });
+
+        if (linkedAttendance) {
+          await updateAttendance(linkedAttendance.id, {
+            classCode: form.classCode,
+            courseCode: form.courseCode,
+            date: form.dateOfLecture,
+            present: actualStudents,
+            total: totalRegistered,
+            lecturerName: user.name,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      } else {
+        const createdReport = await addReport(reportPayload);
+        await addAttendance({
+          classCode: form.classCode,
+          courseCode: form.courseCode,
+          date: form.dateOfLecture,
+          present: actualStudents,
+          total: totalRegistered,
+          lecturerName: user.name,
+          reportId: createdReport.id,
+        });
+      }
+
+      Alert.alert(existingReport ? 'Updated' : 'Submitted', existingReport ? 'Report updated successfully.' : 'Report submitted successfully.', [
         { text: 'Open Reports', onPress: () => navigation.navigate('Reports') },
       ]);
     } catch (error) {
@@ -511,7 +644,9 @@ export function ReportFormScreen({ navigation }) {
           </TouchableOpacity>
           <View>
             <Text style={{ color: theme.bgText || theme.text, fontSize: 22, fontWeight: '800' }}>Submit Report</Text>
-            <Text style={{ color: theme.bgTextMuted || theme.textMuted, fontSize: 12 }}>Lecturer Reporting Form</Text>
+            <Text style={{ color: theme.bgTextMuted || theme.textMuted, fontSize: 12 }}>
+              {existingReport ? 'Update your report before review' : 'Lecturer Reporting Form'}
+            </Text>
           </View>
         </View>
 
@@ -603,7 +738,20 @@ export function ReportFormScreen({ navigation }) {
           <Input label="Lecturer's Recommendations" value={form.recommendations} onChangeText={value => update('recommendations', value)} placeholder="Any suggestions or improvements?" multiline numberOfLines={3} />
         </Card>
 
-        <Btn title={submitting ? 'Submitting...' : 'Submit Report'} onPress={handleSubmit} size="lg" disabled={submitting} />
+        <Btn
+          title={
+            submitting
+              ? existingReport
+                ? 'Saving...'
+                : 'Submitting...'
+              : existingReport
+                ? 'Save Changes'
+                : 'Submit Report'
+          }
+          onPress={handleSubmit}
+          size="lg"
+          disabled={submitting || existingReport?.status === 'reviewed'}
+        />
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -652,31 +800,93 @@ export function ReportFormScreen({ navigation }) {
 export function MonitoringScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { reports, courses } = useData();
+  const { reports, attendance, ratings, deleteRating, courses } = useData();
   const [search, setSearch] = useState('');
+  const [selectedModuleCode, setSelectedModuleCode] = useState('');
+  const scopedClasses = getUserClasses(user, courses);
+  const scopedClassCodes = new Set(scopedClasses.map(cls => cls.code));
+  const isStudent = user.role === 'Student';
+  const myCourses = getUserCourses(user, courses);
   const myReports =
     user.role === 'FMG'
       ? reports
-      : user.role === 'Student'
-      ? reports.filter(report => report.classCode === user.class)
-      : reports.filter(report => report.faculty === user.faculty || lecturerMatchesUser(report.lecturerName, user.name));
+      : isStudent
+        ? reports.filter(report => report.classCode === user.class)
+        : user.role === 'PRL'
+          ? reports.filter(report => scopedClassCodes.has(report.classCode))
+          : reports.filter(report => report.faculty === user.faculty || lecturerMatchesUser(report.lecturerName, user.name));
+  const myAttendance =
+    user.role === 'FMG'
+      ? attendance
+      : isStudent
+        ? attendance.filter(record => record.createdByUid === user.id || record.studentName === user.name)
+        : user.role === 'Lecturer'
+          ? attendance.filter(record => lecturerMatchesUser(record.lecturerName, user.name))
+          : attendance.filter(record => scopedClassCodes.has(record.classCode));
+  const myRatings =
+    isStudent
+      ? ratings.filter(rating => rating.submittedBy === user.id)
+      : user.role === 'FMG'
+        ? ratings
+        : ratings.filter(rating => scopedClassCodes.has(rating.classCode) || rating.classCode === user.class);
+
   const byCourse = myReports.reduce((accumulator, report) => {
-    if (search && !report.courseName.toLowerCase().includes(search.toLowerCase())) {
+    if (search && !`${report.courseName} ${report.courseCode}`.toLowerCase().includes(search.toLowerCase())) {
       return accumulator;
     }
 
-    accumulator[report.courseName] = accumulator[report.courseName] || { count: 0, present: 0, total: 0 };
-    accumulator[report.courseName].count += 1;
-    accumulator[report.courseName].present += report.actualStudents || 0;
-    accumulator[report.courseName].total += report.totalRegistered || 0;
+    const key = report.courseName || report.courseCode || 'Course';
+    accumulator[key] = accumulator[key] || { count: 0, present: 0, total: 0 };
+    accumulator[key].count += 1;
+    accumulator[key].present += report.actualStudents || 0;
+    accumulator[key].total += report.totalRegistered || 0;
     return accumulator;
   }, {});
+  const attendanceRate =
+    myAttendance.reduce((sum, record) => sum + (record.total || 0), 0) > 0
+      ? Math.round(
+          (myAttendance.reduce((sum, record) => sum + (record.present || 0), 0) /
+            myAttendance.reduce((sum, record) => sum + (record.total || 0), 0)) *
+            100
+        )
+      : 0;
+  const studentModules = myCourses
+    .filter(course => !search || `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))
+    .map(course => {
+      const moduleRecords = myAttendance
+        .filter(record => record.courseCode === course.code && record.classCode === course.class)
+        .sort((a, b) => `${a.date || ''}`.localeCompare(`${b.date || ''}`));
+      const totalSessions = moduleRecords.length;
+      const presentSessions = moduleRecords.filter(record => record.present > 0).length;
+      const percentage = totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0;
+      return {
+        ...course,
+        totalSessions,
+        presentSessions,
+        percentage,
+        records: moduleRecords,
+      };
+    });
+  const activeStudentModule = studentModules.find(module => module.code === selectedModuleCode) || studentModules[0] || null;
+  const studentRatings = myRatings
+    .filter(rating => !search || `${rating.lecturerName} ${rating.comment || ''}`.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 6);
+  const reviewedCount = myReports.filter(report => report.status === 'reviewed').length;
+  const summaryTone = attendanceRate >= 75 ? theme.success : theme.warning;
+  const summaryBg = attendanceRate >= 75 ? theme.successSoft : theme.warningSoft;
+
+  useEffect(() => {
+    if (!isStudent || studentModules.length === 0) return;
+    if (!selectedModuleCode || !studentModules.some(module => module.code === selectedModuleCode)) {
+      setSelectedModuleCode(studentModules[0].code);
+    }
+  }, [isStudent, selectedModuleCode, studentModules]);
 
   return (
     <AppShell
       navigation={navigation}
       activeTab="analytics"
-      title="Insights"
+      title="Monitoring"
       accent={theme.info}
     >
       <View
@@ -690,19 +900,158 @@ export function MonitoringScreen({ navigation }) {
           marginBottom: 18,
         }}
       >
-        <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>Insights</Text>
-        <Text style={{ color: theme.textMuted, marginTop: 6, marginBottom: 14 }}>
-          Attendance summary by course.
-        </Text>
-        <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 14 }}>
-          This screen covers the monitoring view required by the brief.
-        </Text>
+        <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>Monitoring</Text>
+        <View style={{ flexDirection: 'row', marginHorizontal: -4, marginBottom: 14 }}>
+          <StatCard label={isStudent ? 'Attendance' : 'Reports'} value={isStudent ? `${attendanceRate}%` : myReports.length} />
+          <StatCard label={isStudent ? 'Ratings' : 'Reviewed'} value={isStudent ? myRatings.length : reviewedCount} />
+        </View>
 
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Filter monitoring by course..." />
+        <Card style={{ backgroundColor: summaryBg, marginBottom: 14 }}>
+          <Text style={{ color: summaryTone, fontSize: 12, fontWeight: '800' }}>Attendance overview</Text>
+          <Text style={{ color: summaryTone, fontSize: 24, fontWeight: '900', marginTop: 4 }}>
+            {isStudent ? `${attendanceRate}%` : `${Object.keys(byCourse).length} courses`}
+          </Text>
+          {isStudent ? <Text style={{ color: summaryTone, marginTop: 4 }}>{getAttendanceMessage(attendanceRate)}</Text> : null}
+        </Card>
 
-        {Object.entries(byCourse).length > 0 && (
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder={isStudent ? 'Search modules or ratings...' : 'Filter monitoring by course...'}
+        />
+
+        {isStudent && studentModules.length > 0 ? (
           <Card>
-            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 15, marginBottom: 14 }}>By Course</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              {studentModules.map(module => {
+                const active = activeStudentModule?.code === module.code;
+                return (
+                  <TouchableOpacity
+                    key={module.code}
+                    onPress={() => setSelectedModuleCode(module.code)}
+                    style={{
+                      backgroundColor: active ? theme.info : theme.bgSecondary,
+                      borderRadius: 16,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      marginRight: 8,
+                    }}
+                  >
+                    <Text style={{ color: active ? '#FFFFFF' : theme.text, fontWeight: '800', fontSize: 12 }}>{module.code}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {activeStudentModule ? (
+              <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 18, padding: 14 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16 }}>{activeStudentModule.name}</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                      {activeStudentModule.code} • {activeStudentModule.presentSessions}/{activeStudentModule.totalSessions} saved
+                    </Text>
+                  </View>
+                  <Badge label={`${activeStudentModule.percentage}%`} color={activeStudentModule.percentage >= 75 ? 'reviewed' : 'pending'} />
+                </View>
+                <View style={{ backgroundColor: theme.bgCard, borderRadius: 999, height: 10, overflow: 'hidden', marginTop: 12 }}>
+                  <View
+                    style={{
+                      backgroundColor: activeStudentModule.percentage >= 75 ? theme.success : theme.warning,
+                      width: `${activeStudentModule.percentage}%`,
+                      height: '100%',
+                    }}
+                  />
+                </View>
+                <Text style={{ color: activeStudentModule.percentage >= 75 ? theme.success : theme.warning, fontWeight: '800', marginTop: 10 }}>
+                  {activeStudentModule.totalSessions > 0
+                    ? getAttendanceMessage(activeStudentModule.percentage)
+                    : 'No attendance has been recorded for this module yet.'}
+                </Text>
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isStudent ? (
+          <Card>
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 15, marginBottom: 14 }}>Attendance by module</Text>
+            {studentModules.length === 0 ? (
+              <EmptyState icon="ATT" message="No module attendance has been recorded yet." />
+            ) : (
+              <View>
+                <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14, marginBottom: 12 }}>
+                  {activeStudentModule?.name || 'Selected module'}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row' }}>
+                    <View style={{ width: 74, paddingTop: 38, marginRight: 10 }}>
+                      <View style={{ height: 42, justifyContent: 'center' }}>
+                        <Text style={{ color: theme.success, fontWeight: '800', fontSize: 12 }}>Present</Text>
+                      </View>
+                      <View style={{ height: 42, justifyContent: 'center' }}>
+                        <Text style={{ color: theme.danger, fontWeight: '800', fontSize: 12 }}>Absent</Text>
+                      </View>
+                    </View>
+
+                    {(activeStudentModule?.records || []).map((record, index) => {
+                      const present = record.present > 0;
+                      return (
+                        <View
+                          key={record.id}
+                          style={{
+                            width: 74,
+                            backgroundColor: theme.bgSecondary,
+                            borderRadius: 18,
+                            paddingVertical: 10,
+                            paddingHorizontal: 8,
+                            marginRight: 10,
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontWeight: '800', fontSize: 11 }}>
+                            W{index + 1}
+                          </Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 4 }}>
+                            {record.date?.slice(5) || ''}
+                          </Text>
+
+                          <View style={{ height: 42, justifyContent: 'center', alignItems: 'center', marginTop: 10 }}>
+                            {present ? (
+                              <View
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 7,
+                                  backgroundColor: theme.success,
+                                }}
+                              />
+                            ) : null}
+                          </View>
+
+                          <View style={{ height: 42, justifyContent: 'center', alignItems: 'center' }}>
+                            {!present ? (
+                              <View
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 7,
+                                  backgroundColor: theme.danger,
+                                }}
+                              />
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+          </Card>
+        ) : Object.entries(byCourse).length > 0 ? (
+          <Card>
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 15, marginBottom: 14 }}>By course</Text>
             {Object.entries(byCourse).map(([name, data]) => {
               const rate = data.total > 0 ? Math.round((data.present / data.total) * 100) : 0;
               return (
@@ -723,9 +1072,54 @@ export function MonitoringScreen({ navigation }) {
               );
             })}
           </Card>
+        ) : (
+          <EmptyState icon="MON" message="No monitoring data is available yet." />
+        )}
+
+        {isStudent && (
+          <Card>
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 15, marginBottom: 14 }}>Your ratings</Text>
+            {studentRatings.length === 0 ? (
+              <EmptyState icon="RATE" message="You have not submitted any ratings yet." />
+            ) : (
+              studentRatings.map(rating => (
+                <View key={rating.id} style={{ backgroundColor: theme.bgSecondary, borderRadius: 16, padding: 12, marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={{ color: theme.text, fontWeight: '800' }}>{rating.lecturerName}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                        {rating.rating}/5 • {rating.date}
+                      </Text>
+                      <Text style={{ color: theme.text, fontSize: 12, marginTop: 8 }}>
+                        {rating.comment || 'No written comment added.'}
+                      </Text>
+                    </View>
+                    <Btn
+                      title="Delete"
+                      size="sm"
+                      variant="outline"
+                      onPress={() =>
+                        Alert.alert('Delete rating', `Remove your rating for ${rating.lecturerName}?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await deleteRating(rating.id);
+                            },
+                          },
+                        ])
+                      }
+                    />
+                  </View>
+                </View>
+              ))
+            )}
+          </Card>
         )}
 
       </View>
     </AppShell>
   );
 }
+

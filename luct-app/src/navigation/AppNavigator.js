@@ -9,11 +9,12 @@ import HomeScreen from '../screens/HomeScreen';
 import FacultiesScreen from '../screens/FacultiesScreen';
 import FacultyDetailScreen from '../screens/FacultyDetailScreen';
 import { ProgrammeListScreen, ProgrammeDetailScreen, StaffListScreen, StaffDetailScreen } from '../screens/StaffScreens';
-import { ClassesScreen, CoursesScreen, LecturesScreen } from '../screens/ClassCourseScreens';
+import { ClassesScreen, CoursesScreen, LecturesScreen, CourseOutlinesScreen } from '../screens/ClassCourseScreens';
 import { ReportsScreen, ReportFormScreen, MonitoringScreen } from '../screens/ReportScreens';
 import { AttendanceScreen, RatingScreen } from '../screens/AttendanceRatingScreens';
 import ModulesScreen from '../screens/ModulesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import CreateHubScreen from '../screens/CreateHubScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,7 @@ export default function AppNavigator() {
     <Stack.Navigator screenOptions={screenOptions} initialRouteName="Home">
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Modules" component={ModulesScreen} />
+      <Stack.Screen name="CreateHub" component={CreateHubScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Faculties" component={FacultiesScreen} />
       <Stack.Screen name="FacultyDetail" component={FacultyDetailScreen} />
@@ -58,6 +60,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Classes" component={ClassesScreen} />
       <Stack.Screen name="Courses" component={CoursesScreen} />
       <Stack.Screen name="Lectures" component={LecturesScreen} />
+      <Stack.Screen name="CourseOutlines" component={CourseOutlinesScreen} />
       <Stack.Screen name="Reports" component={ReportsScreen} />
       <Stack.Screen name="ReportForm" component={ReportFormScreen} />
       <Stack.Screen name="Monitoring" component={MonitoringScreen} />

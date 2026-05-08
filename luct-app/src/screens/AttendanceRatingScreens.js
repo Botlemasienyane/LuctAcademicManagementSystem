@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppShell } from '../components/AppShell';
 import { Card, EmptyState, Input, SearchBar, Btn, Badge } from '../components/UI';
-import { getProgressTone, getRatingTone, getRoleTone, useTheme } from '../context/ThemeContext';
+import { getAttendanceMessage, getProgressTone, getRatingTone, getRoleTone, useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { CLASSES } from '../data/seedData';
@@ -47,7 +47,7 @@ function HeroStat({ theme, palette, label, value, helper }) {
   );
 }
 
-export function AttendanceScreen({ navigation }) {
+export function AttendanceScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { attendance, addAttendance, deleteAttendance, courses } = useData();
@@ -66,14 +66,38 @@ export function AttendanceScreen({ navigation }) {
   const myClasses = getUserClasses(user, courses);
   const myCourses = getUserCourses(user, courses);
   const classCourses = myCourses.filter(course => course.class === form.classCode);
+  const isStudent = user.role === 'Student';
+  const studentClass = myClasses[0] || null;
+  const routeCourseCode = route?.params?.courseCode || '';
 
   const myAttendance =
     // Attendance records are filtered by role so each user sees only their own area.
-    user.role === 'Student'
-      ? attendance.filter(record => record.classCode === user.class)
+    isStudent
+      ? attendance.filter(record => record.createdByUid === user.id || record.studentName === user.name)
       : user.role === 'Lecturer'
         ? attendance.filter(record => lecturerMatchesUser(record.lecturerName, user.name))
         : attendance.filter(record => myClasses.some(cls => cls.code === record.classCode));
+
+  const studentMarks = myAttendance.filter(record => record.createdByUid === user.id);
+  const studentMarkedToday = studentMarks.some(
+    record => record.date === form.date && record.courseCode === form.courseCode && record.classCode === form.classCode
+  );
+  const studentModuleCards = useMemo(
+    () =>
+      myCourses.map(course => {
+        const moduleRecords = myAttendance.filter(record => record.courseCode === course.code && record.classCode === course.class);
+        const totalSessions = moduleRecords.length;
+        const presentSessions = moduleRecords.filter(record => record.present > 0).length;
+        return {
+          ...course,
+          totalSessions,
+          presentSessions,
+          percentage: totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0,
+          lastDate: moduleRecords[0]?.date || null,
+        };
+      }),
+    [myAttendance, myCourses]
+  );
 
   const filteredAttendance = myAttendance.filter(record => {
     if (!search) return true;
@@ -110,41 +134,69 @@ export function AttendanceScreen({ navigation }) {
       classCode: selectedClass.code,
       courseCode: selectedCourse?.code || '',
       date: new Date().toISOString().split('T')[0],
-      present: '',
-      total: selectedClass.totalStudents.toString(),
+      present: isStudent ? '1' : '',
+      total: isStudent ? '1' : selectedClass.totalStudents.toString(),
     });
   };
 
-  const handleSubmit = () => {
-    if (!form.classCode || !form.courseCode || !form.present) {
-      Alert.alert('Error', 'Please select a class, a course, and attendance count.');
+  const handleSubmit = async () => {
+    if (!form.classCode || !form.courseCode) {
+      Alert.alert('Missing details', 'Please select a class and a course.');
       return;
     }
 
-    addAttendance({
+    if (!isStudent && !form.present) {
+      Alert.alert('Missing details', 'Please enter the number of students present.');
+      return;
+    }
+
+    if (isStudent && studentMarkedToday) {
+      Alert.alert('Already marked', 'You have already marked yourself present for today.');
+      return;
+    }
+
+    await addAttendance({
       ...form,
-      present: parseInt(form.present, 10),
-      total: parseInt(form.total, 10),
-      lecturerName: user.name,
+      present: isStudent ? 1 : parseInt(form.present, 10),
+      total: isStudent ? 1 : parseInt(form.total, 10),
+      lecturerName: isStudent ? '' : user.name,
+      studentName: isStudent ? user.name : '',
+      source: isStudent ? 'student-self-mark' : 'staff-roll-call',
     });
     setForm({
-      classCode: '',
-      courseCode: '',
+      classCode: isStudent ? studentClass?.code || '' : '',
+      courseCode: isStudent ? form.courseCode : '',
       date: new Date().toISOString().split('T')[0],
-      present: '',
-      total: '',
+      present: isStudent ? '1' : '',
+      total: isStudent ? '1' : '',
     });
-    setShowForm(false);
-    Alert.alert('Recorded', 'Attendance recorded successfully.');
+
+    Alert.alert(
+      isStudent ? 'Marked Present' : 'Attendance Saved',
+      isStudent ? 'Your attendance has been recorded.' : 'Attendance recorded successfully.'
+    );
   };
+
+  useEffect(() => {
+    if (!studentClass || !isStudent) return;
+    const preferredCourse =
+      myCourses.find(course => course.code === routeCourseCode && course.class === studentClass.code) ||
+      myCourses.find(course => course.class === studentClass.code);
+    setForm(current => ({
+      ...current,
+      classCode: current.classCode || studentClass.code,
+      courseCode: current.courseCode || preferredCourse?.code || '',
+      present: '1',
+      total: '1',
+    }));
+  }, [studentClass, isStudent, myCourses, routeCourseCode]);
 
   return (
     <AppShell
       navigation={navigation}
       activeTab="analytics"
       title="Attendance"
-      subtitle="Track student presence and class turnout"
-      headerBadge={`${filteredAttendance.length} logs`}
+      headerBadge={isStudent ? `${studentMarks.length} mark${studentMarks.length === 1 ? '' : 's'}` : `${filteredAttendance.length} logs`}
       accent={roleTone.bg}
     >
       <View
@@ -161,12 +213,11 @@ export function AttendanceScreen({ navigation }) {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Attendance</Text>
-            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Attendance analytics</Text>
-            <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-              Review attendance records and capture class attendance.
+            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>
+              {isStudent ? 'Mark attendance' : 'Attendance analytics'}
             </Text>
           </View>
-          {(user.role === 'Lecturer' || user.role === 'PRL') && (
+          {!isStudent && (user.role === 'Lecturer' || user.role === 'PRL') && (
             <TouchableOpacity
               onPress={() => setShowForm(value => !value)}
               style={{
@@ -186,35 +237,108 @@ export function AttendanceScreen({ navigation }) {
 
       <View style={{ flexDirection: 'row', marginHorizontal: -5, marginBottom: 12 }}>
         <View style={{ flex: 1, paddingHorizontal: 5 }}>
-          <HeroStat theme={theme} palette={metricPalettes[0]} label="Sessions" value={myAttendance.length} helper="captured records" />
+          <HeroStat
+            theme={theme}
+            palette={metricPalettes[0]}
+            label={isStudent ? 'Modules' : 'Sessions'}
+            value={isStudent ? studentModuleCards.length : myAttendance.length}
+            helper={isStudent ? 'on your register' : 'captured records'}
+          />
         </View>
         <View style={{ flex: 1, paddingHorizontal: 5 }}>
-          <HeroStat theme={theme} palette={metricPalettes[1]} label="Present" value={totalPresent} helper={`${totalRegistered || 0} seats tracked`} />
+          <HeroStat
+            theme={theme}
+            palette={metricPalettes[1]}
+            label={isStudent ? 'Today' : 'Present'}
+            value={isStudent ? (studentMarkedToday ? 'Yes' : 'No') : totalPresent}
+            helper={isStudent ? 'marked for today' : `${totalRegistered || 0} seats tracked`}
+          />
         </View>
         <View style={{ flex: 1, paddingHorizontal: 5 }}>
           <HeroStat
             theme={theme}
             palette={metricPalettes[2]}
-            label="Average"
-            value={`${averageRate}%`}
-            helper={averageRate >= 75 ? 'healthy turnout' : 'needs attention'}
+            label={isStudent ? 'Class' : 'Average'}
+            value={isStudent ? (studentClass?.code || 'N/A') : `${averageRate}%`}
+            helper={isStudent ? 'your registered class' : getAttendanceMessage(averageRate)}
           />
         </View>
       </View>
 
       <Card style={{ borderRadius: 24, marginBottom: 14, backgroundColor: averageTone.bg }}>
-        <Text style={{ color: averageTone.text, fontSize: 12, fontWeight: '800' }}>Attendance status</Text>
-        <Text style={{ color: averageTone.text, fontSize: 24, fontWeight: '900', marginTop: 4 }}>{averageRate}%</Text>
+        <Text style={{ color: averageTone.text, fontSize: 12, fontWeight: '800' }}>
+          {isStudent ? 'Attendance status' : 'Attendance status'}
+        </Text>
+        <Text style={{ color: averageTone.text, fontSize: 24, fontWeight: '900', marginTop: 4 }}>
+          {isStudent ? (studentMarkedToday ? 'Present' : 'Pending') : `${averageRate}%`}
+        </Text>
         <Text style={{ color: averageTone.text, marginTop: 4 }}>
-          {averageRate >= 75 ? 'Attendance is healthy.' : 'Attendance needs attention.'}
+          {isStudent
+            ? studentMarkedToday
+              ? 'Your attendance has already been recorded for this date.'
+              : 'You can still mark yourself present for this date.'
+            : getAttendanceMessage(averageRate)}
         </Text>
       </Card>
 
-      {showForm ? (
+      {isStudent ? (
+        <Card style={{ borderRadius: 24, marginBottom: 14 }}>
+          <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16, marginBottom: 12 }}>Module attendance</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 36 }}>
+            {studentModuleCards.map((module, index) => {
+              const tone = getProgressTone(theme, module.percentage);
+              const isSelected = form.courseCode === module.code;
+              return (
+                <TouchableOpacity
+                  key={module.id}
+                  onPress={() =>
+                    setForm(current => ({
+                      ...current,
+                      classCode: module.class,
+                      courseCode: module.code,
+                      present: '1',
+                      total: '1',
+                    }))
+                  }
+                  style={{
+                    width: 236,
+                    backgroundColor: isSelected ? roleTone.tint : theme.bgSecondary,
+                    borderRadius: 18,
+                    padding: 14,
+                    marginRight: index === studentModuleCards.length - 1 ? 0 : 12,
+                    borderWidth: 1,
+                    borderColor: isSelected ? roleTone.bg : theme.border,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={{ color: theme.text, fontWeight: '900', fontSize: 14 }}>{module.name}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                        {module.code} • {module.lastDate || 'No attendance saved'}
+                      </Text>
+                    </View>
+                    <Badge label={`${module.percentage}%`} color={module.percentage >= 75 ? 'reviewed' : 'pending'} />
+                  </View>
+                  <View style={{ backgroundColor: theme.bgCard, borderRadius: 999, height: 8, overflow: 'hidden' }}>
+                    <View style={{ backgroundColor: tone.fill, width: `${module.percentage}%`, height: '100%' }} />
+                  </View>
+                  <Text style={{ color: tone.text, fontSize: 12, fontWeight: '800', marginTop: 8 }}>
+                    {module.totalSessions > 0 ? getAttendanceMessage(module.percentage) : 'No attendance has been recorded for this module yet.'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </Card>
+      ) : null}
+
+      {(isStudent || showForm) ? (
         <Card style={{ borderRadius: 28, borderWidth: 2, borderColor: roleTone.bg, marginBottom: 14 }}>
-          <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, marginBottom: 14 }}>Record class attendance</Text>
+          <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, marginBottom: 14 }}>
+            {isStudent ? 'Mark myself present' : 'Record class attendance'}
+          </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' }}>
-            Select class
+            {isStudent ? 'Your class' : 'Select class'}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 10 }}>
             {myClasses.map(cls => (
@@ -240,7 +364,7 @@ export function AttendanceScreen({ navigation }) {
           {form.classCode ? (
             <>
               <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' }}>
-                Select course
+                Select module
               </Text>
               <View style={{ marginBottom: 10 }}>
                 {classCourses.map(course => (
@@ -267,19 +391,25 @@ export function AttendanceScreen({ navigation }) {
           ) : null}
 
           <Input label="Date of lecture" value={form.date} onChangeText={value => update('date', value)} placeholder="YYYY-MM-DD" />
-          <Input label="Students present" value={form.present} onChangeText={value => update('present', value)} keyboardType="numeric" placeholder="e.g. 22" />
-          <Input label="Registered students" value={form.total} onChangeText={value => update('total', value)} keyboardType="numeric" editable={false} />
-          <Btn title="Save Attendance" onPress={handleSubmit} />
+          {!isStudent ? (
+            <>
+              <Input label="Students present" value={form.present} onChangeText={value => update('present', value)} keyboardType="numeric" placeholder="e.g. 22" />
+              <Input label="Registered students" value={form.total} onChangeText={value => update('total', value)} keyboardType="numeric" editable={false} />
+            </>
+          ) : null}
+          <Btn title={isStudent ? 'Save Module Attendance' : 'Save Attendance'} onPress={handleSubmit} disabled={isStudent && studentMarkedToday} />
         </Card>
       ) : null}
 
-      <SearchBar value={search} onChangeText={setSearch} placeholder="Search attendance by class, course, date, lecturer..." />
+      {!isStudent ? (
+        <>
+          <SearchBar value={search} onChangeText={setSearch} placeholder="Search attendance by class, course, date, lecturer..." />
 
-      <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Attendance records</Text>
-      {filteredAttendance.length === 0 ? (
-        <EmptyState icon="ATT" message="No attendance records yet" />
-      ) : (
-        filteredAttendance.map(record => {
+          <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Attendance records</Text>
+          {filteredAttendance.length === 0 ? (
+            <EmptyState icon="ATT" message="No attendance records in this view yet" />
+          ) : (
+            filteredAttendance.map(record => {
           const rate = record.total > 0 ? Math.round((record.present / record.total) * 100) : 0;
           const cls = CLASSES.find(entry => entry.code === record.classCode);
           const course = courses.find(entry => entry.code === record.courseCode && entry.class === record.classCode);
@@ -367,8 +497,10 @@ export function AttendanceScreen({ navigation }) {
               ) : null}
             </Card>
           );
-        })
-      )}
+            })
+          )}
+        </>
+      ) : null}
     </AppShell>
   );
 }
@@ -444,7 +576,6 @@ export function RatingScreen({ navigation }) {
       navigation={navigation}
       activeTab="analytics"
       title="Ratings"
-      subtitle="Feedback and lecturer experience"
       headerBadge={`${filteredRatings.length} reviews`}
       accent={roleTone.bg}
     >
@@ -463,9 +594,6 @@ export function RatingScreen({ navigation }) {
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={{ color: theme.textMuted, fontWeight: '800', fontSize: 12 }}>Rating</Text>
             <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', marginTop: 6 }}>Rating and feedback</Text>
-            <Text style={{ color: theme.textMuted, marginTop: 6 }}>
-              Students can rate lecturers, and academic staff can review submitted feedback.
-            </Text>
           </View>
           {user.role === 'Student' && (
             <TouchableOpacity
@@ -499,9 +627,6 @@ export function RatingScreen({ navigation }) {
 
       <Card style={{ borderRadius: 28, marginBottom: 14 }}>
         <Text style={{ color: theme.text, fontWeight: '900', fontSize: 17, marginBottom: 6 }}>Rating guide</Text>
-        <Text style={{ color: theme.textMuted, marginBottom: 12 }}>
-          This module covers the rating requirement from the assignment brief.
-        </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
           {[
             '1 Star - Poor',
@@ -581,7 +706,6 @@ export function RatingScreen({ navigation }) {
       {featuredLecturers.length > 0 ? (
         <Card style={{ borderRadius: 28, marginBottom: 14 }}>
           <Text style={{ color: theme.text, fontWeight: '900', fontSize: 17, marginBottom: 4 }}>Top rated lecturers</Text>
-          <Text style={{ color: theme.textMuted, marginBottom: 12 }}>Current lecturer averages</Text>
           {featuredLecturers.map((item, index) => (
             <View
               key={item.name}

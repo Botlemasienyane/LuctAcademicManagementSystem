@@ -1,6 +1,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -23,6 +24,7 @@ function assertFirebaseConfig() {
 
 let authInstance;
 let dbInstance;
+let storageInstance;
 
 export function getFirebaseApp() {
   assertFirebaseConfig();
@@ -41,4 +43,10 @@ export function getFirebaseDb() {
   if (dbInstance) return dbInstance;
   dbInstance = getFirebaseApp().firestore();
   return dbInstance;
+}
+
+export function getFirebaseStorage() {
+  if (storageInstance) return storageInstance;
+  storageInstance = getFirebaseApp().storage();
+  return storageInstance;
 }

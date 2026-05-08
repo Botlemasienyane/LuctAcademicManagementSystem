@@ -26,16 +26,16 @@ export default function ProfileScreen({ navigation }) {
 
   const shortcuts = user?.role === 'Student'
     ? [
-        { title: 'Modules', note: 'Explore all features', screen: 'Modules', icon: 'grid-outline' },
-        { title: 'Monitoring', note: 'Open analytics', screen: 'Monitoring', icon: 'stats-chart-outline' },
-        { title: 'Attendance', note: 'View sessions', screen: 'Attendance', icon: 'calendar-outline' },
-        { title: 'Rating', note: 'Rate lecturers', screen: 'Rating', icon: 'star-outline' },
+        { title: 'Modules', screen: 'Modules', icon: 'grid-outline' },
+        { title: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline' },
+        { title: 'Attendance', screen: 'Attendance', icon: 'calendar-outline' },
+        { title: 'Rating', screen: 'Rating', icon: 'star-outline' },
       ]
     : [
-        { title: 'Modules', note: 'Explore all features', screen: 'Modules', icon: 'grid-outline' },
-        { title: 'Reports', note: 'Open reports', screen: 'Reports', icon: 'document-text-outline' },
-        { title: 'Monitoring', note: 'Open analytics', screen: 'Monitoring', icon: 'stats-chart-outline' },
-        { title: 'Attendance', note: 'View sessions', screen: 'Attendance', icon: 'calendar-outline' },
+        { title: 'Modules', screen: 'Modules', icon: 'grid-outline' },
+        { title: 'Reports', screen: 'Reports', icon: 'document-text-outline' },
+        { title: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline' },
+        { title: 'Attendance', screen: 'Attendance', icon: 'calendar-outline' },
       ];
 
   const pickPhoto = async () => {
@@ -69,7 +69,6 @@ export default function ProfileScreen({ navigation }) {
       navigation={navigation}
       activeTab="profile"
       title="Profile"
-      subtitle="Identity, preferences, shortcuts"
       headerBadge={user?.role || 'User'}
       accent={roleTone.bg}
     >
@@ -125,9 +124,7 @@ export default function ProfileScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={{ color: roleTone.text, fontSize: 24, fontWeight: '900' }}>{user?.name || 'User'}</Text>
               <Text style={{ color: roleTone.text, opacity: 0.84, marginTop: 4 }}>{user?.email}</Text>
-              <Text style={{ color: roleTone.text, opacity: 0.74, marginTop: 10 }}>
-                {uploading ? 'Updating photo...' : 'Tap your photo to personalize your workspace.'}
-              </Text>
+              {uploading ? <Text style={{ color: roleTone.text, opacity: 0.74, marginTop: 10 }}>Updating photo...</Text> : null}
             </View>
           </View>
 
@@ -177,9 +174,6 @@ export default function ProfileScreen({ navigation }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>Appearance</Text>
-            <Text style={{ color: theme.textMuted, marginTop: 4 }}>
-            
-            </Text>
           </View>
           <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ false: theme.ashCloud, true: theme.textSecondary }} thumbColor={theme.accent} />
         </View>
@@ -213,7 +207,6 @@ export default function ProfileScreen({ navigation }) {
                 <Ionicons name={item.icon} size={21} color={theme.accentDark} />
               </View>
               <Text style={{ color: theme.text, fontWeight: '900', fontSize: 15 }}>{item.title}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 6 }}>{item.note}</Text>
             </View>
           </TouchableOpacity>
         ))}

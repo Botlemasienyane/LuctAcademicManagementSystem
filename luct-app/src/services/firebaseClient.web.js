@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -22,6 +23,7 @@ function assertFirebaseConfig() {
 }
 
 let dbInstance;
+let storageInstance;
 
 export function getFirebaseApp() {
   assertFirebaseConfig();
@@ -39,3 +41,8 @@ export function getFirebaseDb() {
   return dbInstance;
 }
 
+export function getFirebaseStorage() {
+  if (storageInstance) return storageInstance;
+  storageInstance = getStorage(getFirebaseApp());
+  return storageInstance;
+}

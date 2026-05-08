@@ -25,12 +25,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "57d79897-a277-4eee-aacc-85febdd26e56"
+        "projectId": "d32ad33c-9a61-4c7d-bc86-a4c5c594ce60"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "owner": "isakoena"
+    "owner": "botle03"
   }
 }

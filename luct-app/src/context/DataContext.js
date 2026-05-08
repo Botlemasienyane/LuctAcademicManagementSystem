@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { COURSES } from '../data/seedData';
+import { CLASSES, COURSES, SEEDED_ATTENDANCE, SEEDED_COURSE_OUTLINES, SEEDED_RATINGS, SEEDED_REPORTS } from '../data/seedData';
 import { apiFetch } from '../services/apiClient';
 import {
   addDocToCollection,
@@ -8,15 +8,17 @@ import {
   updateDocFields,
 } from '../services/firebaseFirestore';
 import { getFirebaseDb } from '../services/firebaseClient';
+import { deleteOutlineDocument, uploadOutlineDocument } from '../services/firebaseStorage';
 import { useAuth } from './AuthContext';
 
 const DataContext = createContext();
 
 const INITIAL_STATE = {
   courses: COURSES,
-  reports: [],
-  attendance: [],
-  ratings: [],
+  reports: SEEDED_REPORTS,
+  attendance: SEEDED_ATTENDANCE,
+  ratings: SEEDED_RATINGS,
+  courseOutlines: SEEDED_COURSE_OUTLINES,
 };
 
 const mergeCourseData = (seedCourses, remoteCourses) => {
@@ -38,30 +40,99 @@ const mergeCourseData = (seedCourses, remoteCourses) => {
   return Array.from(merged.values());
 };
 
+const mergeCollectionData = (seedItems, remoteItems, keyBuilder) => {
+  const merged = new Map();
+
+  seedItems.forEach(item => {
+    merged.set(keyBuilder(item), item);
+  });
+
+  remoteItems.forEach(item => {
+    const key = keyBuilder(item);
+    if (item.deletedAt) {
+      merged.delete(key);
+      return;
+    }
+    merged.set(key, { ...merged.get(key), ...item });
+  });
+
+  return Array.from(merged.values());
+};
+
+const getClassFaculty = (classCode) => CLASSES.find(entry => entry.code === classCode)?.faculty || '';
+
+const canManageFaculty = (currentUser, faculty) => {
+  if (!currentUser || !faculty) return false;
+  if (currentUser.role === 'FMG') return true;
+  return currentUser.role === 'PL' && currentUser.faculty === faculty;
+};
+
+const assertFacultyManager = (currentUser, faculty, entityLabel) => {
+  if (!currentUser) {
+    throw new Error(`Sign in to manage ${entityLabel}.`);
+  }
+
+  if (!canManageFaculty(currentUser, faculty)) {
+    throw new Error(`You are not allowed to manage this ${entityLabel}.`);
+  }
+};
+
 export const DataProvider = ({ children }) => {
   const { ready: authReady, user, getIdToken } = useAuth();
   const [courses, setCourses] = useState(INITIAL_STATE.courses);
   const [reports, setReports] = useState(INITIAL_STATE.reports);
   const [attendance, setAttendance] = useState(INITIAL_STATE.attendance);
   const [ratings, setRatings] = useState(INITIAL_STATE.ratings);
+  const [courseOutlines, setCourseOutlines] = useState(INITIAL_STATE.courseOutlines);
   const [ready, setReady] = useState(false);
   const db = useMemo(() => getFirebaseDb(), []);
+
+  const resolveManagedCourse = (course) => {
+    const existingMatch = courses.find(
+      entry => entry.id === course.id || (entry.code === course.code && entry.class === course.class)
+    );
+    const classCode = course.class || existingMatch?.class || '';
+    const faculty = course.faculty || existingMatch?.faculty || getClassFaculty(classCode);
+
+    if (!classCode || !faculty) {
+      throw new Error('This course is missing class or faculty information.');
+    }
+
+    assertFacultyManager(user, faculty, 'course');
+
+    return { existingMatch, classCode, faculty };
+  };
+
+  const resolveManagedCourseOutline = (outline) => {
+    const existingMatch = courseOutlines.find(entry => entry.id === outline.id) || null;
+    const classCode = outline.classCode || existingMatch?.classCode || '';
+    const faculty = outline.faculty || existingMatch?.faculty || getClassFaculty(classCode);
+
+    if (!classCode || !faculty) {
+      throw new Error('This outline is missing class or faculty information.');
+    }
+
+    assertFacultyManager(user, faculty, 'course outline');
+
+    return { existingMatch, classCode, faculty };
+  };
 
   useEffect(() => {
     if (!authReady) return undefined;
 
     if (!user) {
       setCourses(INITIAL_STATE.courses);
-      setReports([]);
-      setAttendance([]);
-      setRatings([]);
+      setReports(INITIAL_STATE.reports);
+      setAttendance(INITIAL_STATE.attendance);
+      setRatings(INITIAL_STATE.ratings);
+      setCourseOutlines(INITIAL_STATE.courseOutlines);
       setReady(true);
       return undefined;
     }
 
     setReady(false);
 
-    const pending = new Set(['reports', 'attendance', 'ratings', 'courses']);
+    const pending = new Set(['reports', 'attendance', 'ratings', 'courses', 'courseOutlines']);
     const markReady = (key) => {
       pending.delete(key);
       if (pending.size === 0) {
@@ -75,11 +146,12 @@ export const DataProvider = ({ children }) => {
         'reports',
         { orderByField: 'submittedAt', orderDirection: 'desc', limitCount: 300 },
         items => {
-          setReports(items);
+          setReports(mergeCollectionData(SEEDED_REPORTS, items, item => item.id));
           markReady('reports');
         },
         error => {
           console.warn('Realtime reports sync failed', error);
+          setReports(SEEDED_REPORTS);
           markReady('reports');
         }
       ),
@@ -88,11 +160,12 @@ export const DataProvider = ({ children }) => {
         'attendance',
         { orderByField: 'date', orderDirection: 'desc', limitCount: 500 },
         items => {
-          setAttendance(items);
+          setAttendance(mergeCollectionData(SEEDED_ATTENDANCE, items, item => item.id));
           markReady('attendance');
         },
         error => {
           console.warn('Realtime attendance sync failed', error);
+          setAttendance(SEEDED_ATTENDANCE);
           markReady('attendance');
         }
       ),
@@ -101,11 +174,12 @@ export const DataProvider = ({ children }) => {
         'ratings',
         { orderByField: 'date', orderDirection: 'desc', limitCount: 500 },
         items => {
-          setRatings(items);
+          setRatings(mergeCollectionData(SEEDED_RATINGS, items, item => item.id));
           markReady('ratings');
         },
         error => {
           console.warn('Realtime ratings sync failed', error);
+          setRatings(SEEDED_RATINGS);
           markReady('ratings');
         }
       ),
@@ -121,6 +195,20 @@ export const DataProvider = ({ children }) => {
           console.warn('Realtime courses sync failed', error);
           setCourses(COURSES);
           markReady('courses');
+        }
+      ),
+      subscribeToCollection(
+        db,
+        'courseOutlines',
+        { orderByField: 'updatedAt', orderDirection: 'desc', limitCount: 300 },
+        items => {
+          setCourseOutlines(mergeCollectionData(SEEDED_COURSE_OUTLINES, items, item => item.id));
+          markReady('courseOutlines');
+        },
+        error => {
+          console.warn('Realtime course outline sync failed', error);
+          setCourseOutlines(SEEDED_COURSE_OUTLINES);
+          markReady('courseOutlines');
         }
       ),
     ];
@@ -303,13 +391,13 @@ export const DataProvider = ({ children }) => {
   };
 
   const saveCourse = async (course) => {
-    const existingMatch = courses.find(
-      entry => entry.id === course.id || (entry.code === course.code && entry.class === course.class)
-    );
+    const { existingMatch, classCode, faculty } = resolveManagedCourse(course);
 
     const normalizedCourse = {
       ...existingMatch,
       ...course,
+      class: classCode,
+      faculty,
       id: existingMatch?.id || course.id || `crs_${Date.now()}`,
       updatedByUid: user?.id || '',
       updatedAt: new Date().toISOString(),
@@ -336,7 +424,17 @@ export const DataProvider = ({ children }) => {
   };
 
   const deleteCourse = async (courseId) => {
+    const existingCourse = courses.find(course => course.id === courseId);
+
+    if (!existingCourse) {
+      throw new Error('Course not found.');
+    }
+
+    const { classCode, faculty } = resolveManagedCourse(existingCourse);
     const payload = {
+      ...existingCourse,
+      class: classCode,
+      faculty,
       deletedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       updatedByUid: user?.id || '',
@@ -355,6 +453,54 @@ export const DataProvider = ({ children }) => {
     await updateDocFields(db, 'courses', courseId, payload);
   };
 
+  const saveCourseOutline = async (outline) => {
+    const { existingMatch, classCode, faculty } = resolveManagedCourseOutline(outline);
+    const outlineId = outline.id || `outline_${Date.now()}`;
+    const uploadedAttachment = outline.selectedFile
+      ? await uploadOutlineDocument({ file: outline.selectedFile, outlineId })
+      : {};
+    const payload = {
+      ...existingMatch,
+      ...outline,
+      ...uploadedAttachment,
+      id: outlineId,
+      classCode,
+      faculty,
+      status: outline.status || 'pending',
+      updatedAt: new Date().toISOString(),
+      updatedByUid: user?.id || '',
+      createdByUid: outline.createdByUid || user?.id || '',
+      deletedAt: null,
+    };
+
+    delete payload.selectedFile;
+
+    await updateDocFields(db, 'courseOutlines', outlineId, payload);
+    return payload;
+  };
+
+  const deleteCourseOutline = async (outline) => {
+    const { existingMatch, classCode, faculty } = resolveManagedCourseOutline(outline);
+    const targetOutline = existingMatch || outline;
+
+    await updateDocFields(db, 'courseOutlines', targetOutline.id, {
+      ...targetOutline,
+      classCode,
+      faculty,
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updatedByUid: user?.id || '',
+    });
+
+    if (targetOutline?.storagePath) {
+      try {
+        await deleteOutlineDocument(targetOutline.storagePath);
+      } catch (error) {
+        console.warn('Course outline file delete failed after record cleanup', error);
+      }
+    }
+  };
+
   const refresh = async () => {
     // Realtime listeners keep the app up to date.
   };
@@ -367,6 +513,7 @@ export const DataProvider = ({ children }) => {
         reports,
         attendance,
         ratings,
+        courseOutlines,
         addReport,
         updateReport,
         deleteReport,
@@ -379,6 +526,8 @@ export const DataProvider = ({ children }) => {
         deleteRating,
         saveCourse,
         deleteCourse,
+        saveCourseOutline,
+        deleteCourseOutline,
         refresh,
       }}
     >

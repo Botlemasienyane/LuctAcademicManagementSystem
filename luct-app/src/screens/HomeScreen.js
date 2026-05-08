@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Image, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppShell } from '../components/AppShell';
-import { getProgressTone, getRoleLabel, getRoleTone, useTheme } from '../context/ThemeContext';
+import { getAttendanceMessage, getProgressTone, getRoleLabel, getRoleTone, useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { FACULTIES } from '../data/seedData';
-import { getUserClasses } from '../utils/scope';
+import { PressableCard } from '../components/UI';
+import { getUserClasses, lecturerMatchesUser } from '../utils/scope';
 
 const accentSets = [
   { bg: '#EEF6FF', ink: '#2B6EF2', icon: 'chart-donut-variant' },
@@ -18,7 +19,7 @@ const accentSets = [
 export default function HomeScreen({ navigation }) {
   const { theme } = useTheme();
   const { user, profilePhoto } = useAuth();
-  const { reports, attendance, courses } = useData();
+  const { reports, attendance, courses, ratings } = useData();
   const fade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -35,61 +36,98 @@ export default function HomeScreen({ navigation }) {
       : user.role === 'PL' || user.role === 'PRL'
         ? report.faculty === user.faculty
         : user.role === 'Lecturer'
-          ? report.lecturerName === user.name
-          : false
+          ? lecturerMatchesUser(report.lecturerName, user.name)
+          : report.classCode === user.class
   );
 
   const myClasses = getUserClasses(user, courses);
   const myFaculty = FACULTIES.find(faculty => faculty.id === user.faculty);
   const roleTone = getRoleTone(user.role);
+  const myAttendance = useMemo(() => (
+    user.role === 'FMG'
+      ? attendance
+      : user.role === 'Student'
+        ? attendance.filter(record => record.createdByUid === user.id || record.studentName === user.name)
+        : user.role === 'Lecturer'
+          ? attendance.filter(record => lecturerMatchesUser(record.lecturerName, user.name))
+          : attendance.filter(record => myClasses.some(cls => cls.code === record.classCode))
+  ), [attendance, myClasses, user.class, user.id, user.name, user.role]);
   const attendanceRate = useMemo(() => {
-    const present = attendance.reduce((sum, record) => sum + (record.present || 0), 0);
-    const total = attendance.reduce((sum, record) => sum + (record.total || 0), 0);
+    const present = myAttendance.reduce((sum, record) => sum + (record.present || 0), 0);
+    const total = myAttendance.reduce((sum, record) => sum + (record.total || 0), 0);
     return total > 0 ? Math.round((present / total) * 100) : 0;
-  }, [attendance]);
+  }, [myAttendance]);
   const progressTone = getProgressTone(theme, attendanceRate || 0, 70);
   const pendingCount = myReports.filter(report => report.status === 'submitted').length;
   const reviewedCount = myReports.filter(report => report.status === 'reviewed').length;
+  const studentRatings = ratings.filter(rating => rating.submittedBy === user.id);
 
-  const analytics = [
-    {
-      label: 'Reports',
-      value: myReports.length,
-      helper: `${pendingCount} pending`,
-      color: accentSets[0],
-    },
-    {
-      label: 'Attendance',
-      value: `${attendanceRate}%`,
-      helper: `${attendance.length} attendance records`,
-      color: accentSets[1],
-    },
-    {
-      label: user.role === 'FMG' ? 'Faculties' : 'Classes',
-      value: user.role === 'FMG' ? FACULTIES.length : myClasses.length,
-      helper: myFaculty?.shortName || 'LUCT',
-      color: accentSets[2],
-    },
-    {
-      label: 'Reviewed',
-      value: reviewedCount,
-      helper: 'reviewed reports',
-      color: accentSets[3],
-    },
-  ];
+  const analytics = user.role === 'Student'
+    ? [
+        {
+          label: 'Attendance',
+          value: `${attendanceRate}%`,
+          helper: getAttendanceMessage(attendanceRate),
+          color: accentSets[0],
+        },
+        {
+          label: 'Classes',
+          value: myClasses.length,
+          helper: myFaculty?.shortName || 'LUCT',
+          color: accentSets[1],
+        },
+        {
+          label: 'Courses',
+          value: courses.filter(course => course.class === user.class).length,
+          helper: 'registered this term',
+          color: accentSets[2],
+        },
+        {
+          label: 'Ratings',
+          value: studentRatings.length,
+          helper: 'feedback submitted',
+          color: accentSets[3],
+        },
+      ]
+    : [
+        {
+          label: 'Reports',
+          value: myReports.length,
+          helper: `${pendingCount} pending`,
+          color: accentSets[0],
+        },
+        {
+          label: 'Attendance',
+          value: `${attendanceRate}%`,
+          helper: `${myAttendance.length} attendance logs`,
+          color: accentSets[1],
+        },
+        {
+          label: user.role === 'FMG' ? 'Faculties' : 'Classes',
+          value: user.role === 'FMG' ? FACULTIES.length : myClasses.length,
+          helper: myFaculty?.shortName || 'LUCT',
+          color: accentSets[2],
+        },
+        {
+          label: 'Reviewed',
+          value: reviewedCount,
+          helper: 'reviewed reports',
+          color: accentSets[3],
+        },
+      ];
 
   const quickActions = user.role === 'Student'
     ? [
-        { label: 'Attendance', note: 'View attendance records', icon: 'calendar-outline', screen: 'Attendance' },
-        { label: 'Insights', note: 'Open course insights', icon: 'stats-chart-outline', screen: 'Monitoring' },
-        { label: 'Classes', note: 'View your class details', icon: 'people-outline', screen: 'Classes' },
-        { label: 'Rating', note: 'Rate lecturers', icon: 'star-outline', screen: 'Rating' },
+        { label: 'Attendance', icon: 'calendar-outline', screen: 'Attendance' },
+        { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
+        { label: 'Classes', icon: 'people-outline', screen: 'Classes' },
+        { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
       ]
     : [
-        { label: 'Reports', note: 'View submitted reports', icon: 'document-text-outline', screen: 'Reports' },
-        { label: 'Insights', note: 'Open course insights', icon: 'stats-chart-outline', screen: 'Monitoring' },
-        { label: 'New Report', note: 'Submit a lecture report', icon: 'add-circle-outline', screen: 'ReportForm' },
-        { label: 'Rating', note: 'Open lecturer ratings', icon: 'star-outline', screen: 'Rating' },
+        { label: 'Reports', icon: 'document-text-outline', screen: 'Reports' },
+        { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
+        { label: 'New Report', icon: 'add-circle-outline', screen: 'ReportForm' },
+        { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
       ];
 
   return (
@@ -98,11 +136,6 @@ export default function HomeScreen({ navigation }) {
       activeTab="home"
       title="Dashboard"
       accent={roleTone.bg}
-      floatingAction={
-        user.role === 'Student'
-          ? { label: 'Attend', screen: 'Attendance', icon: 'calendar-check-outline' }
-          : { label: 'Create', screen: 'ReportForm', icon: 'plus' }
-      }
     >
       <Animated.View style={{ opacity: fade }}>
         <View
@@ -165,9 +198,11 @@ export default function HomeScreen({ navigation }) {
                 <Text style={{ color: roleTone.text, fontSize: 28, fontWeight: '900', marginTop: 4 }}>
                   {getRoleLabel(user.role)}
                 </Text>
-                <Text style={{ color: roleTone.text, opacity: 0.78, marginTop: 4 }}>
-                  {pendingCount > 0 ? `${pendingCount} reports need action` : 'No pending reports right now.'}
-                </Text>
+                {user.role !== 'Student' && (
+                  <Text style={{ color: roleTone.text, opacity: 0.78, marginTop: 4 }}>
+                    {pendingCount > 0 ? `${pendingCount} pending` : 'Up to date'}
+                  </Text>
+                )}
               </View>
 
               <View style={{ alignItems: 'flex-end' }}>
@@ -188,35 +223,41 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Animated.View>
 
-<Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginBottom: 12 }}>Overview</Text>
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900' }}>Overview</Text>
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginBottom: 10 }}>
         {analytics.map(item => (
           <View key={item.label} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
             <View
               style={{
                 backgroundColor: theme.bgCard,
-                borderRadius: 24,
-                padding: 10,
+                borderRadius: 18,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
                 borderWidth: 1,
                 borderColor: theme.border,
               }}
             >
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 12,
-                  backgroundColor: item.color.bg,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 6,
-                }}
-              >
-                <MaterialCommunityIcons name={item.color.icon} size={18} color={item.color.ink} />
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 10,
+                    backgroundColor: item.color.bg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 10,
+                  }}
+                >
+                  <MaterialCommunityIcons name={item.color.icon} size={16} color={item.color.ink} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>{item.label}</Text>
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', marginTop: 2 }}>{item.value}</Text>
+                </View>
               </View>
-              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>{item.value}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 4 }}>{item.label}</Text>
-              <Text style={{ color: item.color.ink, fontSize: 10, marginTop: 8, fontWeight: '800' }}>{item.helper}</Text>
             </View>
           </View>
         ))}
@@ -233,22 +274,24 @@ export default function HomeScreen({ navigation }) {
         <Text style={{ color: progressTone.text, fontSize: 12, fontWeight: '800' }}>Attendance status</Text>
         <Text style={{ color: progressTone.text, fontSize: 26, fontWeight: '900', marginTop: 4 }}>{attendanceRate}%</Text>
         <Text style={{ color: progressTone.text, marginTop: 4 }}>
-          {attendanceRate >= 70 ? 'Attendance is on track.' : 'Attendance needs attention.'}
+          {getAttendanceMessage(attendanceRate, 70)}
         </Text>
       </View>
 
-<Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900', marginTop: 8, marginBottom: 12 }}>Quick Access</Text>
+      <View style={{ marginTop: 8, marginBottom: 12 }}>
+        <Text style={{ color: theme.bgText, fontSize: 19, fontWeight: '900' }}>Quick Access</Text>
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
         {quickActions.map(action => (
-          <TouchableOpacity key={action.label} onPress={() => navigation.navigate(action.screen)} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
+          <PressableCard key={action.label} onPress={() => navigation.navigate(action.screen)} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
             <View
               style={{
-                backgroundColor: theme.bgCard,
+                backgroundColor: roleTone.surface,
                 borderRadius: 24,
                 padding: 16,
                 minHeight: 124,
-                borderWidth: 1,
-                borderColor: theme.border,
+                borderWidth: 2,
+                borderColor: roleTone.tint,
               }}
             >
               <View
@@ -256,18 +299,17 @@ export default function HomeScreen({ navigation }) {
                   width: 46,
                   height: 46,
                   borderRadius: 16,
-                  backgroundColor: theme.accentLighter,
+                  backgroundColor: roleTone.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 12,
                 }}
               >
-                <Ionicons name={action.icon} size={22} color={theme.accentDark} />
+                <Ionicons name={action.icon} size={22} color={roleTone.text} />
               </View>
               <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16 }}>{action.label}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 6 }}>{action.note}</Text>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         ))}
       </View>
     </AppShell>

@@ -22,6 +22,7 @@ const ALL_MENU_ITEMS = {
     { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
     { label: 'Attendance', icon: 'calendar-outline', screen: 'Attendance' },
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
+    { label: 'Course Outlines', icon: 'attach-outline', screen: 'CourseOutlines' },
     { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Profile', icon: 'person-outline', screen: 'Profile' },
   ],
@@ -33,6 +34,7 @@ const ALL_MENU_ITEMS = {
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
     { label: 'Classes', icon: 'people-outline', screen: 'Classes' },
     { label: 'Attendance', icon: 'calendar-outline', screen: 'Attendance' },
+    { label: 'Course Outlines', icon: 'attach-outline', screen: 'CourseOutlines' },
     { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Profile', icon: 'person-outline', screen: 'Profile' },
   ],
@@ -43,16 +45,21 @@ const ALL_MENU_ITEMS = {
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
     { label: 'Classes', icon: 'people-outline', screen: 'Classes' },
     { label: 'Courses', icon: 'book-outline', screen: 'Courses' },
+    { label: 'Lectures', icon: 'easel-outline', screen: 'Lectures' },
+    { label: 'Course Outlines', icon: 'attach-outline', screen: 'CourseOutlines' },
     { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Profile', icon: 'person-outline', screen: 'Profile' },
   ],
   PL: [
     { label: 'Home', icon: 'home-outline', screen: 'Home' },
-    { label: 'Reports', icon: 'document-text-outline', screen: 'Reports' },
+    { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
     { label: 'Programmes', icon: 'layers-outline', screen: 'ProgrammeList' },
+    { label: 'Classes', icon: 'people-outline', screen: 'Classes' },
     { label: 'Courses', icon: 'book-outline', screen: 'Courses' },
+    { label: 'Lectures', icon: 'easel-outline', screen: 'Lectures' },
+    { label: 'Course Outlines', icon: 'attach-outline', screen: 'CourseOutlines' },
     { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Profile', icon: 'person-outline', screen: 'Profile' },
   ],
@@ -63,6 +70,7 @@ const ALL_MENU_ITEMS = {
     { label: 'Monitoring', icon: 'stats-chart-outline', screen: 'Monitoring' },
     { label: 'Rating', icon: 'star-outline', screen: 'Rating' },
     { label: 'Staff', icon: 'people-outline', screen: 'StaffList' },
+    { label: 'Course Outlines', icon: 'attach-outline', screen: 'CourseOutlines' },
     { label: 'Modules', icon: 'grid-outline', screen: 'Modules' },
     { label: 'Profile', icon: 'person-outline', screen: 'Profile' },
   ],
@@ -78,12 +86,56 @@ const getBottomTabs = (role) => {
     ];
   }
 
+  if (role === 'PL') {
+    return [
+      { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
+      { key: 'modules', label: 'Modules', screen: 'Modules', icon: 'grid-outline', activeIcon: 'grid' },
+      { key: 'analytics', label: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+      { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+    ];
+  }
+
+  if (role === 'PRL') {
+    return [
+      { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
+      { key: 'classes', label: 'Classes', screen: 'Classes', icon: 'people-outline', activeIcon: 'people' },
+      { key: 'analytics', label: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+      { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+    ];
+  }
+
+  if (role === 'FMG') {
+    return [
+      { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
+      { key: 'modules', label: 'Modules', screen: 'Modules', icon: 'grid-outline', activeIcon: 'grid' },
+      { key: 'analytics', label: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+      { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+    ];
+  }
+
   return [
     { key: 'home', label: 'Home', screen: 'Home', icon: 'home-outline', activeIcon: 'home' },
     { key: 'reports', label: 'Reports', screen: 'Reports', icon: 'document-text-outline', activeIcon: 'document-text' },
-    { key: 'analytics', label: 'Insights', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+    { key: 'analytics', label: 'Monitoring', screen: 'Monitoring', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
     { key: 'profile', label: 'Profile', screen: 'Profile', icon: 'person-outline', activeIcon: 'person' },
   ];
+};
+
+const getFloatingActionForRole = (role) => {
+  switch (role) {
+    case 'Student':
+      return null;
+    case 'Lecturer':
+      return { screen: 'ReportForm', icon: 'plus' };
+    case 'PL':
+      return { screen: 'CreateHub', icon: 'plus' };
+    case 'PRL':
+      return { screen: 'CreateHub', icon: 'plus' };
+    case 'FMG':
+      return null;
+    default:
+      return null;
+  }
 };
 
 export function AppShell({
@@ -147,11 +199,7 @@ export function AppShell({
     });
   };
 
-  const action =
-    floatingAction ||
-    (user?.role === 'Student'
-      ? { label: 'Attend', screen: 'Attendance', icon: 'calendar-check-outline' }
-      : { label: 'Create', screen: 'ReportForm', icon: 'plus' });
+  const action = floatingAction !== undefined ? floatingAction : getFloatingActionForRole(user?.role);
 
   const content = scroll ? (
     <ScrollView
@@ -194,7 +242,7 @@ export function AppShell({
           width: 280,
           height: 280,
           borderRadius: 140,
-          backgroundColor: theme.accentLighter,
+          backgroundColor: roleTone.tint,
           opacity: 0.9,
         }}
       />
@@ -206,8 +254,8 @@ export function AppShell({
           width: 210,
           height: 210,
           borderRadius: 105,
-          backgroundColor: roleTone.subtle,
-          opacity: 0.35,
+          backgroundColor: roleTone.surface,
+          opacity: 0.9,
         }}
       />
 
@@ -316,13 +364,13 @@ export function AppShell({
           elevation: 10,
         }}
       >
-        {bottomTabs.slice(0, 2).map(tab => {
+        {(action ? bottomTabs.slice(0, 2) : bottomTabs).map(tab => {
           const focused = activeTab === tab.key;
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => navigation.navigate(tab.screen)}
-              style={{ alignItems: 'center', width: 58 }}
+              style={{ alignItems: 'center', width: action ? 58 : 68, flex: action ? undefined : 1 }}
             >
               <Ionicons name={focused ? tab.activeIcon : tab.icon} size={22} color={focused ? shellAccent : theme.textMuted} />
               <Text style={{ fontSize: 11, fontWeight: focused ? '800' : '600', color: focused ? theme.text : theme.textMuted, marginTop: 5 }}>
@@ -332,43 +380,47 @@ export function AppShell({
           );
         })}
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate(action.screen)}
-          style={{
-            marginTop: -34,
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: shellAccent,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 6,
-            borderColor: theme.bg,
-            shadowColor: shellAccent,
-            shadowOpacity: 0.45,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 10 },
-            elevation: 12,
-          }}
-        >
-          <MaterialCommunityIcons name={action.icon} size={30} color={theme.accentText} />
-        </TouchableOpacity>
-
-        {bottomTabs.slice(2).map(tab => {
-          const focused = activeTab === tab.key;
-          return (
+        {action ? (
+          <>
             <TouchableOpacity
-              key={tab.key}
-              onPress={() => navigation.navigate(tab.screen)}
-              style={{ alignItems: 'center', width: 58 }}
+              onPress={() => navigation.navigate(action.screen)}
+              style={{
+                marginTop: -34,
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: shellAccent,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 6,
+                borderColor: theme.bg,
+                shadowColor: shellAccent,
+                shadowOpacity: 0.45,
+                shadowRadius: 18,
+                shadowOffset: { width: 0, height: 10 },
+                elevation: 12,
+              }}
             >
-              <Ionicons name={focused ? tab.activeIcon : tab.icon} size={22} color={focused ? shellAccent : theme.textMuted} />
-              <Text style={{ fontSize: 11, fontWeight: focused ? '800' : '600', color: focused ? theme.text : theme.textMuted, marginTop: 5 }}>
-                {tab.label}
-              </Text>
+              <MaterialCommunityIcons name={action.icon} size={30} color={theme.accentText} />
             </TouchableOpacity>
-          );
-        })}
+
+            {bottomTabs.slice(2).map(tab => {
+              const focused = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => navigation.navigate(tab.screen)}
+                  style={{ alignItems: 'center', width: 58 }}
+                >
+                  <Ionicons name={focused ? tab.activeIcon : tab.icon} size={22} color={focused ? shellAccent : theme.textMuted} />
+                  <Text style={{ fontSize: 11, fontWeight: focused ? '800' : '600', color: focused ? theme.text : theme.textMuted, marginTop: 5 }}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        ) : null}
       </View>
 
       <Modal visible={drawerOpen} transparent animationType="none" onRequestClose={() => closeDrawer()}>

@@ -274,6 +274,7 @@ export const COURSES = [
   { id: 'crs_biai3210', code: 'BIAI3210', name: 'Artificial Intelligence', class: 'BSCSMY3S2', lecturer: 'Thato Makheka', venue: 'MM5', time: '08:30-10:30', day: 'Tuesday' },
   { id: 'crs_bica3210', code: 'BICA3210', name: 'Character Animation', class: 'BSCSMY3S2', lecturer: 'Tseliso Moorosi', venue: 'MM3', time: '10:30-12:30', day: 'Tuesday' },
   { id: 'crs_bims3210', code: 'BIMS3210', name: 'Multimedia Security', class: 'BSCSMY3S2', lecturer: 'Molemo Borotho', venue: 'Workshop', time: '08:30-10:30', day: 'Thursday' },
+  { id: 'crs_bicm3210', code: 'BICM3210', name: 'Concepts of Modelling', class: 'BSCSMY3S2', lecturer: 'Tseliso Moorosi', venue: 'Design Lab', time: '10:30-12:30', day: 'Thursday' },
   { id: 'crs_bimp3210', code: 'BIMP3210', name: 'Mobile Device Programming', class: 'BSCSMY3S2', lecturer: 'Tsekiso Thokoana', venue: 'MM3', time: '08:30-10:30', day: 'Friday' },
   // BSc CBIT Y1
   { id: 'crs_bibm1210', code: 'BIBM1210', name: 'Business Mathematics II', class: 'BSCBITY1S2', lecturer: 'Motobatsi Maseli', venue: 'Hall 6', time: '08:30-10:30', day: 'Monday' },
@@ -326,7 +327,176 @@ export const DEMO_USERS = [
   { id: 'u_student1', name: 'Lebohang Mokoena', email: 'student@luct.ac.ls', password: 'student123', role: 'Student', faculty: 'FICT', class: 'BSCSMY3S2' },
 ];
 
-export const WEEKS = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10', 'Week 11', 'Week 12'];
+export const WEEKS = Array.from({ length: 16 }, (_, index) => `Week ${index + 1}`);
+
+const BSCSMY3S2_MODULE_FILES = {
+  BISP3210: {
+    title: 'SPM Module Outline',
+    attachmentName: 'SPM Course Outline.pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/SPM%20Course%20Outline.pdf',
+    status: 'reviewed',
+    note: 'Shared for the current semester.',
+  },
+  BICM3210: {
+    title: 'Concepts of Modelling Outline',
+    attachmentName: 'concets of modelling.pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/concets%20of%20modelling.pdf',
+    status: 'pending',
+    note: 'Awaiting final review sign-off.',
+  },
+  BIMS3210: {
+    title: 'Module Document Pack',
+    attachmentName: 'MX-M5051_20260202_161757 (3).pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/MX-M5051_20260202_161757%20(3).pdf',
+    status: 'assigned',
+    note: 'Attached for module staff distribution.',
+  },
+  BISD3210: {
+    title: 'Software Design Module Outline',
+    attachmentName: 'Software Design Module Outline (2).pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/Software%20Design%20Module%20Outline%20(2).pdf',
+    status: 'reviewed',
+    note: 'Approved and visible to lecturers and students.',
+  },
+  BIMP3210: {
+    title: 'Mobile Device Programming Document',
+    attachmentName: 'MObile C A (1).pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/MObile%20C%20A%20(1).pdf',
+    status: 'pending',
+    note: 'Assessment brief attached while the outline is being updated.',
+  },
+  BICA3210: {
+    title: 'Interactive Multimedia Document',
+    attachmentName: 'INTERACTIVE_MULTIMEDIA (4).pdf',
+    attachmentUrl: 'file:///C:/Users/DELL/Downloads/INTERACTIVE_MULTIMEDIA%20(4).pdf',
+    status: 'assigned',
+    note: 'Shared to support the multimedia-related module content.',
+  },
+};
+
+const MODULE_ATTENDANCE_PATTERNS = {
+  BISD3210: [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1],
+  BISP3210: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+  BIAI3210: [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+  BICA3210: [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
+  BIMS3210: [1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+  BICM3210: [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+  BIMP3210: [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+};
+
+const WEEKLY_SAMPLE_DATES = [
+  '2026-01-19',
+  '2026-01-26',
+  '2026-02-02',
+  '2026-02-09',
+  '2026-02-16',
+  '2026-02-23',
+  '2026-03-02',
+  '2026-03-09',
+  '2026-03-16',
+  '2026-03-23',
+  '2026-03-30',
+  '2026-04-06',
+  '2026-04-13',
+  '2026-04-20',
+  '2026-04-27',
+  '2026-05-04',
+];
+
+const BSCSMY3S2_MODULES = COURSES.filter(course => course.class === 'BSCSMY3S2');
+
+export const SEEDED_ATTENDANCE = BSCSMY3S2_MODULES.flatMap(module => {
+  const pattern = MODULE_ATTENDANCE_PATTERNS[module.code] || [];
+  return WEEKLY_SAMPLE_DATES.map((date, index) => ({
+    id: `seed_att_${module.code}_${index + 1}`,
+    classCode: 'BSCSMY3S2',
+    courseCode: module.code,
+    date,
+    present: pattern[index] || 0,
+    total: 1,
+    lecturerName: module.lecturer,
+    studentName: 'Lebohang Mokoena',
+    source: 'seeded-student-mark',
+    createdByUid: 'u_student1',
+    createdAt: `${date}T08:30:00.000Z`,
+    weekLabel: `Week ${index + 1}`,
+  }));
+});
+
+export const SEEDED_REPORTS = BSCSMY3S2_MODULES.slice(0, 6).map((module, index) => ({
+  id: `seed_rep_${module.code}`,
+  faculty: 'FICT',
+  facultyName: 'Faculty of Information and Communication Technology',
+  className: 'BSc SE+MM Year 3 Sem 2',
+  classCode: 'BSCSMY3S2',
+  week: `Week ${index + 6}`,
+  dateOfLecture: WEEKLY_SAMPLE_DATES[index + 5],
+  courseName: module.name,
+  courseCode: module.code,
+  lecturerName: module.lecturer,
+  actualStudents: 22 + (index % 4),
+  totalRegistered: 26,
+  venue: module.venue,
+  scheduledTime: module.time,
+  topicTaught: `Weekly ${module.name.toLowerCase()} content coverage`,
+  learningOutcomes: `Students followed the scheduled ${module.name.toLowerCase()} learning outcomes for the week.`,
+  recommendations: index % 2 === 0 ? 'Continue with practical reinforcement.' : 'Add a short recap at the start of the next session.',
+  status: index % 3 === 0 ? 'reviewed' : 'submitted',
+  feedback: index % 3 === 0 ? 'Reviewed and accepted.' : '',
+  submittedAt: `${WEEKLY_SAMPLE_DATES[index + 5]}T12:00:00.000Z`,
+  createdByUid: `seed_lecturer_${module.code}`,
+}));
+
+export const SEEDED_RATINGS = [
+  {
+    id: 'seed_rating_tsekiso',
+    lecturerName: 'Tsekiso Thokoana',
+    rating: 5,
+    comment: 'Explains practical work clearly and keeps the module active.',
+    submittedBy: 'u_student1',
+    classCode: 'BSCSMY3S2',
+    date: '2026-05-05',
+  },
+  {
+    id: 'seed_rating_mohale',
+    lecturerName: 'Mohale Tlali',
+    rating: 4,
+    comment: 'Module pace is good and examples help.',
+    submittedBy: 'u_student1',
+    classCode: 'BSCSMY3S2',
+    date: '2026-04-28',
+  },
+  {
+    id: 'seed_rating_khauhelo',
+    lecturerName: 'Khauhelo Mahlakeng',
+    rating: 4,
+    comment: 'Weekly feedback is useful.',
+    submittedBy: 'u_student1',
+    classCode: 'BSCSMY3S2',
+    date: '2026-04-14',
+  },
+];
+
+export const SEEDED_COURSE_OUTLINES = Object.entries(BSCSMY3S2_MODULE_FILES).map(([courseCode, file], index) => {
+  const course = BSCSMY3S2_MODULES.find(item => item.code === courseCode);
+  return {
+    id: `seed_outline_${courseCode.toLowerCase()}`,
+    classCode: 'BSCSMY3S2',
+    courseCode,
+    courseName: course?.name || courseCode,
+    title: file.title,
+    note: file.note,
+    attachmentName: file.attachmentName,
+    attachmentUrl: file.attachmentUrl,
+    status: file.status,
+    faculty: 'FICT',
+    createdByName: 'Mr. Kapela Morutwa',
+    createdByUid: 'u_kapela',
+    updatedByUid: 'u_kapela',
+    updatedAt: `${WEEKLY_SAMPLE_DATES[Math.min(index + 7, WEEKLY_SAMPLE_DATES.length - 1)]}T09:00:00.000Z`,
+    deletedAt: null,
+  };
+});
 
 // PRL access is limited to the programmes under that PRL, as required in the brief.
 // This is handled in the frontend for now.

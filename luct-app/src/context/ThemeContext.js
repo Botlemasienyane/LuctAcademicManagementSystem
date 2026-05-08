@@ -22,6 +22,10 @@ export const PALETTE = {
   success: '#16A34A',
   warning: '#D97706',
   danger: '#DC2626',
+  rolePl: '#052659',
+  rolePrl: '#5482B4',
+  roleLecturer: '#7EA0C5',
+  roleStudent: '#C2E8FF',
 };
 
 export const lightTheme = {
@@ -109,11 +113,41 @@ export const darkTheme = {
 };
 
 const roleToneMap = {
-  FMG: { bg: PALETTE.primary, text: PALETTE.secondary, subtle: PALETTE.overlayLight },
-  PL: { bg: PALETTE.accentDark, text: PALETTE.secondary, subtle: PALETTE.accent },
-  PRL: { bg: PALETTE.accent, text: PALETTE.primary, subtle: PALETTE.accentLight },
-  Lecturer: { bg: PALETTE.accentLight, text: PALETTE.primary, subtle: PALETTE.accentLighter },
-  Student: { bg: PALETTE.accentLighter, text: PALETTE.primary, subtle: PALETTE.muted },
+  FMG: {
+    bg: '#011025',
+    text: PALETTE.secondary,
+    subtle: 'rgba(1,16,37,0.1)',
+    tint: '#D8E2EF',
+    surface: '#F2F7FC',
+  },
+  PL: {
+    bg: PALETTE.rolePl,
+    text: PALETTE.secondary,
+    subtle: 'rgba(5,38,89,0.16)',
+    tint: '#D6E3F3',
+    surface: '#EEF4FA',
+  },
+  PRL: {
+    bg: PALETTE.rolePrl,
+    text: PALETTE.secondary,
+    subtle: 'rgba(84,130,180,0.2)',
+    tint: '#DCE8F5',
+    surface: '#F0F6FB',
+  },
+  Lecturer: {
+    bg: PALETTE.roleLecturer,
+    text: '#17395B',
+    subtle: 'rgba(126,160,197,0.22)',
+    tint: '#E2ECF7',
+    surface: '#F4F8FC',
+  },
+  Student: {
+    bg: PALETTE.roleStudent,
+    text: '#214764',
+    subtle: 'rgba(194,232,255,0.4)',
+    tint: '#ECF7FF',
+    surface: '#F7FCFF',
+  },
 };
 
 export const getRoleTone = (role) =>
@@ -140,6 +174,10 @@ export const getStatusLabel = (status) => {
       return 'Submitted';
     case 'reviewed':
       return 'Reviewed';
+    case 'pending':
+      return 'Pending';
+    case 'assigned':
+      return 'Assigned';
     default:
       return status || '';
   }
@@ -151,6 +189,10 @@ export const getStatusTone = (theme, status) => {
       return { bg: theme.infoSoft, text: theme.info, border: theme.info, fill: theme.info };
     case 'submitted':
       return { bg: theme.warningSoft, text: theme.warning, border: theme.warning, fill: theme.warning };
+    case 'pending':
+      return { bg: theme.warningSoft, text: theme.warning, border: theme.warning, fill: theme.warning };
+    case 'assigned':
+      return { bg: theme.accentLighter, text: theme.accentDark, border: theme.accentDark, fill: theme.accentDark };
     default:
       return { bg: theme.bgSecondary, text: theme.text, border: theme.border, fill: theme.accent };
   }
@@ -160,6 +202,13 @@ export const getProgressTone = (theme, value, threshold = 75) =>
   value >= threshold
     ? { bg: theme.successSoft, text: theme.success, fill: theme.success, border: theme.success }
     : { bg: theme.dangerSoft, text: theme.danger, fill: theme.danger, border: theme.danger };
+
+export const getAttendanceMessage = (value, threshold = 75) => {
+  if (value >= threshold + 10) return 'Attendance is looking steady.';
+  if (value >= threshold) return 'Attendance is within the expected range.';
+  if (value >= Math.max(threshold - 10, 0)) return 'Attendance is slightly below the usual range.';
+  return 'Attendance is currently lower than expected.';
+};
 
 export const getRatingTone = (theme) => ({
   bg: theme.warningSoft,

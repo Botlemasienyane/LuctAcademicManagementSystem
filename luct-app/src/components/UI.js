@@ -1,6 +1,27 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Animated } from 'react-native';
 import { getProgressTone, getRatingTone, getRoleLabel, getRoleTone, getStatusLabel, getStatusTone, useTheme } from '../context/ThemeContext';
+
+const usePressScale = (target = 0.97) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animateTo = (value) => {
+    Animated.spring(scale, {
+      toValue: value,
+      useNativeDriver: true,
+      speed: 28,
+      bounciness: 6,
+    }).start();
+  };
+
+  return {
+    scale,
+    bind: {
+      onPressIn: () => animateTo(target),
+      onPressOut: () => animateTo(1),
+    },
+  };
+};
 
 export const Card = ({ children, style }) => {
   const { theme } = useTheme();
@@ -27,6 +48,7 @@ export const Card = ({ children, style }) => {
 
 export const Btn = ({ title, onPress, variant = 'primary', size = 'md', icon, disabled }) => {
   const { theme } = useTheme();
+  const { scale, bind } = usePressScale();
   const sizes = { sm: { px: 12, py: 7, fs: 12 }, md: { px: 16, py: 11, fs: 14 }, lg: { px: 20, py: 14, fs: 16 } };
   const s = sizes[size];
   const isPrimary = variant === 'primary';
@@ -37,23 +59,38 @@ export const Btn = ({ title, onPress, variant = 'primary', size = 'md', icon, di
   const border = isOutline || isDanger ? { borderWidth: 1, borderColor: isDanger ? theme.danger : theme.accent } : {};
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={[{
-        backgroundColor: bgColor,
-        borderRadius: 10,
-        paddingHorizontal: s.px,
-        paddingVertical: s.py,
-        alignItems: 'center',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        opacity: disabled ? 0.5 : 1,
-      }, border]}
-    >
-      {icon ? <Text style={{ fontSize: s.fs, marginRight: 6 }}>{icon}</Text> : null}
-      <Text style={{ color: txtColor, fontSize: s.fs, fontWeight: '600' }}>{title}</Text>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        {...bind}
+        style={[{
+          backgroundColor: bgColor,
+          borderRadius: 10,
+          paddingHorizontal: s.px,
+          paddingVertical: s.py,
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
+        }, border]}
+      >
+        {icon ? <Text style={{ fontSize: s.fs, marginRight: 6 }}>{icon}</Text> : null}
+        <Text style={{ color: txtColor, fontSize: s.fs, fontWeight: '600' }}>{title}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+export const PressableCard = ({ onPress, children, style, disabled }) => {
+  const { scale, bind } = usePressScale(0.985);
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <TouchableOpacity disabled={disabled} onPress={onPress} {...bind} activeOpacity={0.95}>
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -125,7 +162,7 @@ export const Badge = ({ label, color }) => {
   const textLabel =
     ['fmg', 'pl', 'prl', 'yl', 'lecturer', 'student'].includes((label || '').toLowerCase())
       ? getRoleLabel(label)
-      : ['submitted', 'reviewed'].includes((label || '').toLowerCase())
+      : ['submitted', 'reviewed', 'pending', 'assigned'].includes((label || '').toLowerCase())
       ? getStatusLabel(label)
       : label;
   return (
@@ -180,7 +217,7 @@ export const EmptyState = ({ icon, message }) => {
     RATE: 'Ratings',
     LEC: 'Lectures',
     INFO: 'Information',
-    MON: 'Insights',
+    MON: 'Monitoring',
   };
   return (
     <View style={{ alignItems: 'center', paddingVertical: 40 }}>
