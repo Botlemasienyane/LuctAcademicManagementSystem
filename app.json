@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "d32ad33c-9a61-4c7d-bc86-a4c5c594ce60"
+      }
+    },
+    "android": {
+      "package": "com.botle03.luctams"
+    }
+  }
+}
