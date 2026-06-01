@@ -68,7 +68,12 @@ export function AttendanceScreen({ navigation, route }) {
   const classCourses = myCourses.filter(course => course.class === form.classCode);
   const isStudent = user.role === 'Student';
   const studentClass = myClasses[0] || null;
+  const studentClassCode = studentClass?.code || '';
   const routeCourseCode = route?.params?.courseCode || '';
+  const preferredStudentCourseCode =
+    myCourses.find(course => course.code === routeCourseCode && course.class === studentClassCode)?.code ||
+    myCourses.find(course => course.class === studentClassCode)?.code ||
+    '';
 
   const myAttendance =
     // Attendance records are filtered by role so each user sees only their own area.
@@ -77,15 +82,20 @@ export function AttendanceScreen({ navigation, route }) {
       : user.role === 'Lecturer'
         ? attendance.filter(record => lecturerMatchesUser(record.lecturerName, user.name))
         : attendance.filter(record => myClasses.some(cls => cls.code === record.classCode));
+  const sortedAttendance = [...myAttendance].sort((a, b) => {
+    const left = `${b.date || ''}T${b.createdAt || ''}`;
+    const right = `${a.date || ''}T${a.createdAt || ''}`;
+    return left.localeCompare(right);
+  });
 
-  const studentMarks = myAttendance.filter(record => record.createdByUid === user.id);
+  const studentMarks = sortedAttendance.filter(record => record.createdByUid === user.id);
   const studentMarkedToday = studentMarks.some(
     record => record.date === form.date && record.courseCode === form.courseCode && record.classCode === form.classCode
   );
   const studentModuleCards = useMemo(
     () =>
       myCourses.map(course => {
-        const moduleRecords = myAttendance.filter(record => record.courseCode === course.code && record.classCode === course.class);
+        const moduleRecords = sortedAttendance.filter(record => record.courseCode === course.code && record.classCode === course.class);
         const totalSessions = moduleRecords.length;
         const presentSessions = moduleRecords.filter(record => record.present > 0).length;
         return {
@@ -96,10 +106,10 @@ export function AttendanceScreen({ navigation, route }) {
           lastDate: moduleRecords[0]?.date || null,
         };
       }),
-    [myAttendance, myCourses]
+    [myCourses, sortedAttendance]
   );
 
-  const filteredAttendance = myAttendance.filter(record => {
+  const filteredAttendance = sortedAttendance.filter(record => {
     if (!search) return true;
     const cls = CLASSES.find(entry => entry.code === record.classCode);
     const course = courses.find(entry => entry.code === record.courseCode && entry.class === record.classCode);
@@ -120,12 +130,12 @@ export function AttendanceScreen({ navigation, route }) {
   const averageRate =
     myAttendance.length > 0
       ? Math.round(
-          myAttendance.reduce((sum, record) => sum + (record.total > 0 ? (record.present / record.total) * 100 : 0), 0) /
-            myAttendance.length
+          sortedAttendance.reduce((sum, record) => sum + (record.total > 0 ? (record.present / record.total) * 100 : 0), 0) /
+            sortedAttendance.length
         )
       : 0;
-  const totalPresent = myAttendance.reduce((sum, record) => sum + (record.present || 0), 0);
-  const totalRegistered = myAttendance.reduce((sum, record) => sum + (record.total || 0), 0);
+  const totalPresent = sortedAttendance.reduce((sum, record) => sum + (record.present || 0), 0);
+  const totalRegistered = sortedAttendance.reduce((sum, record) => sum + (record.total || 0), 0);
   const averageTone = getProgressTone(theme, averageRate);
 
   const handleSelectClass = selectedClass => {
@@ -178,18 +188,31 @@ export function AttendanceScreen({ navigation, route }) {
   };
 
   useEffect(() => {
-    if (!studentClass || !isStudent) return;
-    const preferredCourse =
-      myCourses.find(course => course.code === routeCourseCode && course.class === studentClass.code) ||
-      myCourses.find(course => course.class === studentClass.code);
-    setForm(current => ({
-      ...current,
-      classCode: current.classCode || studentClass.code,
-      courseCode: current.courseCode || preferredCourse?.code || '',
-      present: '1',
-      total: '1',
-    }));
-  }, [studentClass, isStudent, myCourses, routeCourseCode]);
+    if (!studentClassCode || !isStudent) return;
+    setForm(current => {
+      const nextClassCode = current.classCode || studentClassCode;
+      const nextCourseCode = current.courseCode || preferredStudentCourseCode;
+      const nextPresent = '1';
+      const nextTotal = '1';
+
+      if (
+        current.classCode === nextClassCode &&
+        current.courseCode === nextCourseCode &&
+        current.present === nextPresent &&
+        current.total === nextTotal
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        classCode: nextClassCode,
+        courseCode: nextCourseCode,
+        present: nextPresent,
+        total: nextTotal,
+      };
+    });
+  }, [isStudent, preferredStudentCourseCode, studentClassCode]);
 
   return (
     <AppShell
@@ -329,6 +352,53 @@ export function AttendanceScreen({ navigation, route }) {
               );
             })}
           </ScrollView>
+        </Card>
+      ) : null}
+
+      {isStudent ? (
+        <Card style={{ borderRadius: 24, marginBottom: 14 }}>
+          <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16, marginBottom: 12 }}>Recent attendance</Text>
+          {studentMarks.length === 0 ? (
+            <EmptyState icon="ATT" message="Your saved attendance will appear here" />
+          ) : (
+            studentMarks.slice(0, 5).map(record => {
+              const course = courses.find(entry => entry.code === record.courseCode && entry.class === record.classCode);
+              const rate = record.total > 0 ? Math.round((record.present / record.total) * 100) : 0;
+              const rateTone = getProgressTone(theme, rate);
+
+              return (
+                <View
+                  key={record.id}
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderRadius: 18,
+                    padding: 14,
+                    marginBottom: 10,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={{ color: theme.text, fontWeight: '900', fontSize: 14 }}>
+                        {course?.name || record.courseCode}
+                      </Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                        {record.courseCode} | {record.classCode}
+                      </Text>
+                    </View>
+                    <Badge label={record.date} color="submitted" />
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
+                    <Text style={{ color: rateTone.text, fontWeight: '800' }}>
+                      {record.present}/{record.total} present
+                    </Text>
+                    <Text style={{ color: rateTone.text, fontWeight: '900' }}>{rate}%</Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </Card>
       ) : null}
 

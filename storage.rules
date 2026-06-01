@@ -5,26 +5,8 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function hasUserDoc() {
-      return signedIn()
-        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
-    }
-
-    function userDoc() {
-      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
-    }
-
-    function userRole() {
-      return hasUserDoc() ? userDoc().data.role : null;
-    }
-
-    function canManageOutlineFiles() {
-      return userRole() in ['PL', 'FMG'];
-    }
-
-    match /course-outlines/{outlineId}/{fileName} {
-      allow read: if signedIn();
-      allow write: if canManageOutlineFiles();
+    match /{allPaths=**} {
+      allow read, write: if signedIn();
     }
   }
 }

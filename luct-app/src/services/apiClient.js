@@ -1,7 +1,8 @@
 import { NativeModules, Platform } from 'react-native';
 
 const DEFAULT_API_URL = 'http://localhost:4000';
-const DEFAULT_TIMEOUT_MS = 16000;
+const DEFAULT_TIMEOUT_MS = 4000;
+let lastHealthyBaseUrl = null;
 
 function normalizeBaseUrl(url) {
   return (url || '').replace(/\/+$/, '');
@@ -21,8 +22,11 @@ function inferExpoHostBaseUrl() {
 function getCandidateBaseUrls() {
   const configured = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL);
   const inferred = normalizeBaseUrl(inferExpoHostBaseUrl());
+  const ordered = Platform.OS === 'web'
+    ? [lastHealthyBaseUrl, configured, inferred]
+    : [lastHealthyBaseUrl, inferred, configured];
 
-  return [configured, inferred].filter((value, index, list) => value && list.indexOf(value) === index);
+  return ordered.filter((value, index, list) => value && list.indexOf(value) === index);
 }
 
 export function getApiBaseUrl() {
@@ -54,6 +58,7 @@ async function fetchWithBaseUrl(baseUrl, path, { token, method = 'GET', body, he
       throw new Error(msg);
     }
 
+    lastHealthyBaseUrl = baseUrl;
     return data;
   } finally {
     clearTimeout(timeoutId);

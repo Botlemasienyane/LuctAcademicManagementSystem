@@ -475,9 +475,9 @@ export function AppShell({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {menuItems.map(item => (
+              {menuItems.map((item, index) => (
                 <TouchableOpacity
-                  key={item.label}
+                  key={`${item.screen}-${index}`}
                   onPress={() => closeDrawer(() => navigation.navigate(item.screen))}
                   style={{
                     flexDirection: 'row',

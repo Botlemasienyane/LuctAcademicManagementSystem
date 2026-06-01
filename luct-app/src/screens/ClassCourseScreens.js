@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import { AppShell } from '../components/AppShell';
 import { Card, SearchBar, EmptyState, Input, Btn, Badge, PressableCard } from '../components/UI';
@@ -15,6 +17,15 @@ const visualSets = [
   { bg: '#FFF4E8', ink: '#F56A37', icon: 'book-open-page-variant' },
   { bg: '#F2ECFF', ink: '#8256F2', icon: 'clock-outline' },
 ];
+
+const BUNDLED_OUTLINE_DOCUMENTS = {
+  '/documents/spm-course-outline.pdf': require('../../public/documents/spm-course-outline.pdf'),
+  '/documents/concepts-of-modelling.pdf': require('../../public/documents/concepts-of-modelling.pdf'),
+  '/documents/module-document-pack.pdf': require('../../public/documents/module-document-pack.pdf'),
+  '/documents/software-design-module-outline.pdf': require('../../public/documents/software-design-module-outline.pdf'),
+  '/documents/mobile-device-programming-document.pdf': require('../../public/documents/mobile-device-programming-document.pdf'),
+  '/documents/interactive-multimedia-document.pdf': require('../../public/documents/interactive-multimedia-document.pdf'),
+};
 
 const getCourseVisual = (course) => {
   const name = `${course?.name || ''} ${course?.code || ''}`.toLowerCase();
@@ -45,6 +56,57 @@ const getScheduleLabel = (time = '') => {
   if (hour < 13) return 'Midday';
   if (hour < 16) return 'Afternoon';
   return 'Evening';
+};
+
+const resolveDocumentUrl = (url) => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) || /^file:\/\//i.test(url)) return url;
+  if (url.startsWith('/')) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}${url}`;
+    }
+    return url;
+  }
+  return url;
+};
+
+const openDocumentUrl = async (url) => {
+  if (!url) {
+    throw new Error('No document is attached to this outline yet.');
+  }
+
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    throw new Error('This document cannot be opened on this device.');
+  }
+
+  if (url.startsWith('/')) {
+    const bundledModule = BUNDLED_OUTLINE_DOCUMENTS[url];
+
+    if (!bundledModule) {
+      throw new Error('This document is not available offline on this device.');
+    }
+
+    const asset = Asset.fromModule(bundledModule);
+    await asset.downloadAsync();
+    const localUrl = asset.localUri || asset.uri;
+    const openableUrl =
+      Platform.OS === 'android' && localUrl.startsWith('file://')
+        ? await FileSystem.getContentUriAsync(localUrl)
+        : localUrl;
+    await Linking.openURL(openableUrl);
+    return;
+  }
+
+  const openableUrl =
+    Platform.OS === 'android' && url.startsWith('file://')
+      ? await FileSystem.getContentUriAsync(url)
+      : url;
+  await Linking.openURL(openableUrl);
 };
 
 function MetricTile({ theme, set, label, value, helper }) {
@@ -808,10 +870,10 @@ export function CoursesScreen({ navigation, route }) {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontWeight: '900', fontSize: 15 }}>{course.name}</Text>
                       <Text style={{ color: courseVisual.ink, marginTop: 4, fontSize: 11, fontWeight: '800' }}>
-                        {courseVisual.label} â€¢ {scheduleLabel}
+                        {courseVisual.label} - {scheduleLabel}
                       </Text>
                       <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>
-                        {course.code} • {course.lecturer}
+                        {course.code} - {course.lecturer}
                       </Text>
                     </View>
                     <Badge label={course.class} color="reviewed" />
@@ -1030,14 +1092,7 @@ export function CourseOutlinesScreen({ navigation }) {
   });
 
   const canManage = user.role === 'PL' || user.role === 'FMG';
-  const visibleOutlines = courseOutlines.filter(outline => {
-    if (user.role === 'FMG') return true;
-    if (user.role === 'PL') return outline.faculty === user.faculty;
-    if (user.role === 'PRL' || user.role === 'Lecturer') {
-      return myCourses.some(course => course.code === outline.courseCode && course.class === outline.classCode);
-    }
-    return outline.classCode === user.class;
-  });
+  const visibleOutlines = courseOutlines.filter(outline => !outline?.deletedAt);
   const filteredOutlines = visibleOutlines.filter(outline =>
     `${outline.title} ${outline.courseCode} ${outline.attachmentName || ''}`
       .toLowerCase()
@@ -1050,28 +1105,32 @@ export function CourseOutlinesScreen({ navigation }) {
   };
 
   const pickOutlineDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ],
-    });
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+      });
 
-    if (result.canceled || !result.assets?.[0]) {
-      return;
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      updateOutlineForm('selectedFile', {
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+        size: asset.size,
+        file: asset.file,
+      });
+    } catch (error) {
+      Alert.alert('Document failed', error.message || 'Could not open the document picker.');
     }
-
-    const asset = result.assets[0];
-    updateOutlineForm('selectedFile', {
-      uri: asset.uri,
-      name: asset.name,
-      mimeType: asset.mimeType,
-      size: asset.size,
-      file: asset.file,
-    });
   };
 
   const handleSaveOutline = async () => {
@@ -1080,22 +1139,26 @@ export function CourseOutlinesScreen({ navigation }) {
       return;
     }
 
-    const course = myCourses.find(item => item.code === outlineForm.courseCode && item.class === outlineForm.classCode);
-    await saveCourseOutline({
-      ...outlineForm,
-      courseName: course?.name || '',
-      faculty: user.faculty,
-      createdByName: user.name,
-    });
-    setOutlineForm({
-      classCode: availableClasses[0]?.code || '',
-      courseCode: myCourses[0]?.code || '',
-      title: '',
-      note: '',
-      selectedFile: null,
-    });
-    setShowForm(false);
-    Alert.alert('Saved', 'Course outline details saved successfully.');
+    try {
+      const course = myCourses.find(item => item.code === outlineForm.courseCode && item.class === outlineForm.classCode);
+      await saveCourseOutline({
+        ...outlineForm,
+        courseName: course?.name || '',
+        faculty: user.faculty,
+        createdByName: user.name,
+      });
+      setOutlineForm({
+        classCode: availableClasses[0]?.code || '',
+        courseCode: myCourses[0]?.code || '',
+        title: '',
+        note: '',
+        selectedFile: null,
+      });
+      setShowForm(false);
+      Alert.alert('Saved', 'Course outline details saved successfully.');
+    } catch (error) {
+      Alert.alert('Save failed', error.message || 'Could not save the course outline right now.');
+    }
   };
 
   return (
@@ -1219,7 +1282,7 @@ export function CourseOutlinesScreen({ navigation }) {
         filteredOutlines.map(outline => {
           const course = courses.find(entry => entry.code === outline.courseCode && entry.class === outline.classCode) || selectedCourse;
           const courseVisual = getCourseVisual(course);
-          const documentUrl = outline.attachmentUrl || outline.outlineLink;
+          const documentUrl = resolveDocumentUrl(outline.attachmentUrl || outline.outlineLink);
 
           return (
             <Card key={outline.id} style={{ borderRadius: 26 }}>
@@ -1263,16 +1326,15 @@ export function CourseOutlinesScreen({ navigation }) {
                   <Btn
                     title="Open Document"
                     onPress={async () => {
-                      if (!documentUrl) {
-                        Alert.alert('Unavailable', 'No document is attached to this outline yet.');
-                        return;
+                      try {
+                        if (!documentUrl) {
+                          Alert.alert('Unavailable', 'No document is attached to this outline yet.');
+                          return;
+                        }
+                        await openDocumentUrl(documentUrl);
+                      } catch (error) {
+                        Alert.alert('Open failed', error.message || 'Could not open this outline right now.');
                       }
-                      const supported = await Linking.canOpenURL(documentUrl);
-                      if (!supported) {
-                        Alert.alert('Unavailable', 'This document cannot be opened on this device.');
-                        return;
-                      }
-                      await Linking.openURL(documentUrl);
                     }}
                   />
                 </View>
@@ -1288,7 +1350,12 @@ export function CourseOutlinesScreen({ navigation }) {
                             text: 'Delete',
                             style: 'destructive',
                             onPress: async () => {
-                              await deleteCourseOutline(outline);
+                              try {
+                                await deleteCourseOutline(outline);
+                                Alert.alert('Deleted', 'Course outline removed successfully.');
+                              } catch (error) {
+                                Alert.alert('Delete failed', error.message || 'Could not remove this course outline right now.');
+                              }
                             },
                           },
                         ])

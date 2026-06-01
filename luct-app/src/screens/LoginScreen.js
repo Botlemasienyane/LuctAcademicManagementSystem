@@ -248,7 +248,7 @@ export default function LoginScreen() {
         </Animated.View>
 
         <TouchableOpacity onPress={() => setShowDemo(value => !value)} style={{ marginTop: 18, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: theme.text, fontWeight: '900', flex: 1 }}>Demo accounts</Text>
+          <Text style={{ color: theme.bgText, fontWeight: '900', flex: 1 }}>Demo accounts</Text>
           <Ionicons name={showDemo ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
         </TouchableOpacity>
 
@@ -296,7 +296,7 @@ export default function LoginScreen() {
             })
           : null}
 
-        <Text style={{ color: theme.textMuted, textAlign: 'center', marginTop: 18 }}>
+        <Text style={{ color: theme.bgTextMuted, textAlign: 'center', marginTop: 18 }}>
           Limkokwing University of Creative Technology, Lesotho
         </Text>
       </ScrollView>

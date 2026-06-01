@@ -381,14 +381,14 @@ export function ReportsScreen({ navigation, route }) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 }}>{report.courseName}</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                    {report.courseCode} • {report.week}
+                    {report.courseCode} - {report.week}
                   </Text>
                 </View>
                 <Badge label={report.status} color={report.status} />
               </View>
 
               <View style={{ backgroundColor: theme.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 10 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>CLASS • LECTURER</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>CLASS - LECTURER</Text>
                 <Text style={{ color: theme.text, fontSize: 13, marginTop: 2 }}>{report.className}</Text>
                 <Text style={{ color: theme.textMuted, fontSize: 12 }}>{report.lecturerName}</Text>
               </View>
@@ -401,7 +401,7 @@ export function ReportsScreen({ navigation, route }) {
                   </Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: theme.bgSecondary, borderRadius: 8, padding: 8 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>VENUE • TIME</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>VENUE - TIME</Text>
                   <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 2 }}>{report.venue}</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 11 }}>{report.scheduledTime}</Text>
                 </View>
@@ -426,8 +426,8 @@ export function ReportsScreen({ navigation, route }) {
                   <Text style={{ color: theme.text, fontSize: 13, marginTop: 3 }}>{report.feedback}</Text>
                 </View>
               ) : user.role === 'Lecturer' && report.createdByUid === user.id && report.status !== 'reviewed' ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 4 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, textAlign: 'center', marginBottom: 10 }}>
                     You can still update this report before it is reviewed.
                   </Text>
                   <Btn title="Edit Report" onPress={() => navigation.navigate('ReportForm', { reportId: report.id })} variant="outline" size="sm" />
@@ -867,6 +867,8 @@ export function MonitoringScreen({ navigation }) {
         records: moduleRecords,
       };
     });
+  const firstStudentModuleCode = studentModules[0]?.code || '';
+  const hasSelectedStudentModule = !!selectedModuleCode && studentModules.some(module => module.code === selectedModuleCode);
   const activeStudentModule = studentModules.find(module => module.code === selectedModuleCode) || studentModules[0] || null;
   const studentRatings = myRatings
     .filter(rating => !search || `${rating.lecturerName} ${rating.comment || ''}`.toLowerCase().includes(search.toLowerCase()))
@@ -876,11 +878,11 @@ export function MonitoringScreen({ navigation }) {
   const summaryBg = attendanceRate >= 75 ? theme.successSoft : theme.warningSoft;
 
   useEffect(() => {
-    if (!isStudent || studentModules.length === 0) return;
-    if (!selectedModuleCode || !studentModules.some(module => module.code === selectedModuleCode)) {
-      setSelectedModuleCode(studentModules[0].code);
+    if (!isStudent || !firstStudentModuleCode) return;
+    if (!hasSelectedStudentModule) {
+      setSelectedModuleCode(firstStudentModuleCode);
     }
-  }, [isStudent, selectedModuleCode, studentModules]);
+  }, [firstStudentModuleCode, hasSelectedStudentModule, isStudent]);
 
   return (
     <AppShell
@@ -949,7 +951,7 @@ export function MonitoringScreen({ navigation }) {
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16 }}>{activeStudentModule.name}</Text>
                     <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
-                      {activeStudentModule.code} • {activeStudentModule.presentSessions}/{activeStudentModule.totalSessions} saved
+                      {activeStudentModule.code} - {activeStudentModule.presentSessions}/{activeStudentModule.totalSessions} saved
                     </Text>
                   </View>
                   <Badge label={`${activeStudentModule.percentage}%`} color={activeStudentModule.percentage >= 75 ? 'reviewed' : 'pending'} />
@@ -1066,7 +1068,7 @@ export function MonitoringScreen({ navigation }) {
                     <View style={{ backgroundColor: theme.accent, width: `${rate}%`, height: '100%' }} />
                   </View>
                   <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 2 }}>
-                    {data.present}/{data.total} • {data.count} session{data.count !== 1 ? 's' : ''}
+                    {data.present}/{data.total} - {data.count} session{data.count !== 1 ? 's' : ''}
                   </Text>
                 </View>
               );
@@ -1088,7 +1090,7 @@ export function MonitoringScreen({ navigation }) {
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={{ color: theme.text, fontWeight: '800' }}>{rating.lecturerName}</Text>
                       <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
-                        {rating.rating}/5 • {rating.date}
+                        {rating.rating}/5 - {rating.date}
                       </Text>
                       <Text style={{ color: theme.text, fontSize: 12, marginTop: 8 }}>
                         {rating.comment || 'No written comment added.'}
@@ -1122,4 +1124,5 @@ export function MonitoringScreen({ navigation }) {
     </AppShell>
   );
 }
+
 

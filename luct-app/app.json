@@ -7,10 +7,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/luct-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#111111"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true

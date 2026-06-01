@@ -175,6 +175,7 @@ function normalizeCourse(payload, uid) {
     venue: sanitizeString(payload.venue, 'Venue', { max: 80 }),
     time: sanitizeTimeRange(payload.time, 'Time'),
     day: sanitizeDay(payload.day),
+    faculty: sanitizeString(payload.faculty, 'Faculty', { required: false, max: 20 }),
     updatedAt: new Date().toISOString(),
     updatedByUid: uid,
     deletedAt: payload.deletedAt || null,

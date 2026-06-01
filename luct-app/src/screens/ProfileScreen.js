@@ -55,7 +55,7 @@ export default function ProfileScreen({ navigation }) {
       });
 
       if (!result.canceled && result.assets?.[0]?.uri) {
-        await updateProfilePhoto(result.assets[0].uri);
+        await updateProfilePhoto(result.assets[0]);
       }
     } catch (error) {
       Alert.alert('Photo failed', error.message || 'Could not update your profile photo.');
